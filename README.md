@@ -16,14 +16,16 @@ The rules run directly on the [HeishaMon](https://github.com/heishamon/HeishaMon
 ## Repository layout
 
 ```
-heishamon_rules/
-├── heishamon_rules_commented.txt   ← source of truth (human-readable, with comments)
-├── rules_syntax.md                 ← HeishaMon rules language reference
-└── examples/                       ← reference implementations from the community
+src/
+├── heishamon_rules/
+│   ├── heishamon_rules_commented.txt   ← source of truth (human-readable, with comments)
+│   ├── rules_syntax.md                 ← HeishaMon rules language reference
+│   └── examples/                       ← reference implementations from the community
+└── simulator/                          ← Python simulator package
 
-simulator/                          ← Python test suite (see below)
-Makefile                            ← build commands
-pyproject.toml                      ← top-level uv project
+tests/                                  ← pytest test suite
+Makefile                                ← build commands
+pyproject.toml                          ← consolidated uv project
 ```
 
 ## Deploying rules to HeishaMon
@@ -43,7 +45,7 @@ make rules
 make comments
 ```
 
-The minified output is written to `heishamon_rules/heishamon_rules_minified.txt`. Upload that file via the HeishaMon web interface under **Rules**.
+The minified output is written to `src/heishamon_rules/heishamon_rules_minified.txt`. Upload that file via the HeishaMon web interface under **Rules**.
 
 ## Simulator & tests
 
@@ -52,14 +54,12 @@ A Python simulator lets you run and test the control logic without real hardware
 ### Setup
 
 ```bash
-cd simulator
 uv sync
 ```
 
 ### Run all tests
 
 ```bash
-cd simulator
 uv run pytest -v
 ```
 
@@ -68,7 +68,7 @@ All 37 tests should pass across 7 scenarios (cold day, mild day, defrost skip, p
 ### Run a quick simulation in Python
 
 ```python
-from heishamon_sim import HeishaMonSimulator
+from simulator import HeishaMonSimulator
 
 sim = HeishaMonSimulator()   # loads heishamon_rules_commented.txt automatically
 sim.boot()
@@ -91,7 +91,7 @@ print("Dynamic shift:", sim.get_global("dynamicShift"))
 print("Pump duty:", sim.get_sensor("SetMaxPumpDuty"))
 ```
 
-For more details on the simulator internals and test scenarios, see [`simulator/README.md`](simulator/README.md).
+For more details on the simulator internals and test scenarios, see [`src/simulator/`](src/simulator/).
 
 ## Heating curve parameters
 

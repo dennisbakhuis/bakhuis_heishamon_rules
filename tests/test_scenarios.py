@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import math
 import pytest
-from heishamon_sim import HeishaMonSimulator
+from simulator import HeishaMonSimulator
 
 
 # ---------------------------------------------------------------------------

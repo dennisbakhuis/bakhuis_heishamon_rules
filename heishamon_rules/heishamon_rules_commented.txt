@@ -40,6 +40,7 @@ on System#Boot then
    * Remember the last setpoint we applied
    ]]
   #lastSetpoint = 0;            -- Track previous setpoint to avoid unnecessary updates
+  #calculatedSetpoint = 35;     -- safe fallback until curve calculates
 
   --[[ Temperature Smoothing
    * Initialize smoothed outdoor temperature for stable control
@@ -165,8 +166,8 @@ on timer=3 then
     -- CASE 1: Outlet approaching or above setpoint
     -- Lower the shift to keep HP running at minimum frequency
     if $outletDelta > -2 then
-      -- Calculate desired shift to keep setpoint ~3°C above inlet
-      $targetShift = (#calculatedSetpoint + #minFreqMargin) - @Main_Outlet_Temp;
+      -- Calculate desired shift to keep setpoint ~#minFreqMargin°C above inlet
+      $targetShift = @Main_Inlet_Temp + #minFreqMargin - #calculatedSetpoint;
       #dynamicShift = max(-3, $targetShift);
 
     -- CASE 2: Outlet significantly below setpoint

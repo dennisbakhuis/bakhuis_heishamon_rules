@@ -173,10 +173,10 @@ If the room is already too warm, the water setpoint is lowered. If the room is c
 
 ### Enabling / disabling
 
-Set `#rtcEnabled` in the rules boot section:
+Set `#enableRTC` in the rules boot section:
 
 ```
-#rtcEnabled = 1;   -- 1 = on, 0 = off (default: 1)
+#enableRTC = 1;   -- 1 = on, 0 = off (default: 1)
 ```
 
 Setting to `0` always forces `#rtcShift = 0` without redeploying or restarting. Useful for testing or if the room sensor fails.

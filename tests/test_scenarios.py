@@ -302,8 +302,8 @@ class TestScenarioF_BootInit:
     def test_last_pump_duty_zero(self):
         assert self.sim.get_global("lastPumpDuty") == 0
 
-    def test_rtc_enabled(self):
-        assert self.sim.get_global("rtcEnabled") == 1
+    def test_enable_rtc(self):
+        assert self.sim.get_global("enableRTC") == 1
 
     def test_rtc_shift_zero(self):
         assert self.sim.get_global("rtcShift") == 0
@@ -412,7 +412,7 @@ class TestScenarioH_RTCCorrections:
         self.sim.set_sensors(Outside_Temp=10.0)
         self.sim.boot()
         # Ensure RTC is enabled
-        self.sim.set_globals(rtcEnabled=1)
+        self.sim.set_globals(enableRTC=1)
 
     @pytest.mark.parametrize("delta,expected_shift,desc", CASES)
     def test_rtc_shift(self, delta: float, expected_shift: int, desc: str):
@@ -439,7 +439,7 @@ class TestScenarioI_RTCDisabled:
         self.sim.set_sensors(Outside_Temp=10.0)
         self.sim.boot()
         # Disable RTC
-        self.sim.set_globals(rtcEnabled=0)
+        self.sim.set_globals(enableRTC=0)
         # Set room temperatures with a large delta that would normally give -3
         self.sim.set_opentherm(roomTemp=24.0, roomTempSet=21.0)  # delta = +3.0
 

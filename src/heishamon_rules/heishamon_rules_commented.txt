@@ -51,11 +51,17 @@ on System#Boot then
    ]]
   #OutsideTemp = @Outside_Temp; -- Initialize with current reading
 
+  -- ════════════════════════════════════════════════════════
+  -- FEATURE FLAGS  (1 = enabled, 0 = disabled)
+  -- ════════════════════════════════════════════════════════
+  #enableMinFreq   = 1;   -- Minimum frequency setpoint shift (timer=3)
+  #enableRTC       = 1;   -- Room temperature control via HA MQTT (timer=3 + ?roomTemp event)
+  #enableSoftStart = 1;   -- Soft-start ramp on compressor startup (timer=5)
+
   --[[ Minimum Frequency Control
    * Dynamic setpoint adjustment to keep HP running at minimum frequency
    * This improves efficiency and reduces cycling
    ]]
-  #enableMinFreq = 1;           -- Enable/disable min frequency control (1=on, 0=off)
   #dynamicShift = 0;            -- Current shift applied to base setpoint (-3 to +1°C)
   #minFreqMargin = 3;           -- Keep setpoint this many °C above inlet (default: 3°C)
 
@@ -63,7 +69,6 @@ on System#Boot then
    * Adjusts the water setpoint based on room temperature feedback from
    * Home Assistant via MQTT OpenTherm interface.
    ]]
-  #rtcEnabled = 1;              -- Enable room temperature control (1=on, 0=off)
   #rtcShift = 0;                -- Current RTC offset applied to setpoint
 
   --[[ Pump Speed Control
@@ -189,7 +194,7 @@ on calculateRTC() then
    *   < -2.0°C        → +4°C  (room very cold: maximum heat boost)
    *************************************************************************]]
 
-  if #rtcEnabled == 1 && isset(?roomTemp) && isset(?roomTempSet) then
+  if #enableRTC == 1 && isset(?roomTemp) && isset(?roomTempSet) then
     $delta = ?roomTemp - ?roomTempSet;
 
     if $delta > 1.5 then

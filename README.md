@@ -58,7 +58,7 @@ uv sync
 uv run pytest -v
 ```
 
-All 37 tests should pass across 7 scenarios (cold day, mild day, defrost skip, pump duty, boot state, weather curve accuracy).
+All tests should pass across 14 scenarios (cold day, mild day, defrost skip, pump duty, boot state, weather curve accuracy, RTC corrections, RTC disabled, RTC missing sensor, soft-start ramp, soft-start disabled, soft-start warm outdoor, min-shift logic).
 
 ### Run a quick simulation in Python
 ```python
@@ -87,15 +87,212 @@ print("Pump duty:", sim.get_sensor("SetMaxPumpDuty"))
 
 For more details on the simulator internals and test scenarios, see [`src/simulator/`](src/simulator/).
 
-## Heating curve parameters
+## Heating Curve (Weather-Dependent Auto-Regulation)
+
+### What is WAR?
+
+WAR (Weather-Dependent Auto-Regulation) automatically adjusts the water supply temperature based on outdoor temperature. Colder outside means higher water temperature, milder outside means lower water temperature — keeping the house comfortable without manual adjustment and maximising heat pump efficiency.
+
+### 3-Point Piecewise Curve
+
+Rather than a single straight line (which forces a compromise between cold and mild accuracy), this implementation uses **two segments** that better match the real heat-loss characteristics of the building. The curve was calibrated to match the Node-RED system exactly.
+
+**Control points:**
+
+| Point | Outdoor temp | Water temp | Description |
+|-------|-------------|-----------|-------------|
+| Cold  | −7 °C       | 40 °C     | Maximum heating demand |
+| Mid   | +5 °C       | 33 °C     | Transition between segments |
+| Warm  | +15 °C      | 28 °C     | Minimum heating demand |
+
+**Segments:**
+
+| Segment | Range | Slope | Notes |
+|---------|-------|-------|-------|
+| 1 (cold)  | −7 °C to +5 °C  | −0.583 °C/°C | Steeper — more sensitive to cold |
+| 2 (warm)  | +5 °C to +15 °C | −0.500 °C/°C | Shallower — gentle adjustment in mild weather |
+
+Outside the range, the setpoint is **clamped**: below −7 °C → 40 °C; above +15 °C → 28 °C.
+
+**ASCII curve shape:**
+
+```
+Water temp (°C)
+  40 | *
+     |  \  ← segment 1 (steeper: −0.58 °C/°C)
+  33 |    *
+     |     \  ← segment 2 (shallower: −0.5 °C/°C)
+  28 |       *
+     +--------+--------+-- Outdoor temp (°C)
+             -7        5       15
+```
+
+**Comparison to the old 2-point curve:**
+The previous implementation used a single line from −10 °C → 40 °C to 18 °C → 27 °C. The new piecewise curve narrows the outdoor range to the realistic operating window (−7 °C to +15 °C), uses a kink point at +5 °C to follow the actual building heat loss profile, and matches the Node-RED calibration exactly.
+
+### Curve parameters
+
 | Parameter | Value | Meaning |
 |-----------|-------|---------|
-| `curveOutdoorLow` | −10 °C | Coldest expected outdoor temp |
-| `curveOutdoorHigh` | 18 °C | Outdoor temp where heating stops |
-| `curveTargetLow` | 40 °C | Water temp at coldest outdoor temp |
-| `curveTargetHigh` | 27 °C | Water temp at warmest outdoor temp |
-| `minSetpoint` | 25 °C | Hard minimum water temp |
+| `curveOutdoorLow` | −7 °C | Cold curve point: outdoor temp |
+| `curveOutdoorMid` | +5 °C | Mid curve point: outdoor temp |
+| `curveOutdoorHigh` | +15 °C | Warm curve point: outdoor temp |
+| `curveTargetLow` | 40 °C | Water temp at cold point |
+| `curveTargetMid` | 33 °C | Water temp at mid point |
+| `curveTargetHigh` | 28 °C | Water temp at warm point |
+| `minSetpoint` | 20 °C | Hard minimum water temp |
 | `maxSetpoint` | 42 °C | Hard maximum water temp |
 | `minFreqMargin` | 3 °C | Keep setpoint this many °C above inlet |
 | `pumpDutyHigh` | 140 | Pump duty when compressor is running |
 | `pumpDutyLow` | 93 | Pump duty when compressor is off |
+
+## Room Temperature Control (RTC)
+
+### What it does
+
+RTC adds a **stepped offset** on top of the weather-compensation curve (WAR) and min-frequency shift, based on actual room temperature feedback from Home Assistant. This closes the loop between what the heat pump delivers and what the room actually needs:
+
+```
+finalSetpoint = calculatedSetpoint (WAR) + dynamicShift (min-freq) + rtcShift (RTC)
+```
+
+If the room is already too warm, the water setpoint is lowered. If the room is cold, it is raised. The dead band (±0.2 °C) prevents hunting.
+
+### Correction table
+
+| Room delta (actual − setpoint) | Water temp correction |
+|-------------------------------|----------------------|
+| delta > +1.5 °C               | −3 °C  (room too warm, reduce aggressively) |
+| +1.0 °C < delta ≤ +1.5 °C    | −2 °C |
+| +0.5 °C < delta ≤ +1.0 °C    | −1 °C |
+| −0.2 °C ≤ delta ≤ +0.5 °C    |  0 °C  (dead band — no correction) |
+| −0.4 °C ≤ delta < −0.2 °C    | +1 °C |
+| −0.6 °C ≤ delta < −0.4 °C    | +2 °C |
+| −2.0 °C ≤ delta < −0.6 °C    | +3 °C |
+| delta < −2.0 °C               | +4 °C  (room very cold, maximum boost) |
+
+### Enabling / disabling
+
+Set `#enableRTC` in the rules boot section:
+
+```
+#enableRTC = 1;   -- 1 = on, 0 = off (default: 1)
+```
+
+Setting to `0` always forces `#rtcShift = 0` without redeploying or restarting. Useful for testing or if the room sensor fails.
+
+### Requirements
+
+- **OpenTherm must be enabled** in HeishaMon Settings → OpenTherm. No physical OpenTherm thermostat is required; HeishaMon simply listens on the MQTT topics.
+- Room temperature and setpoint must be published to the correct MQTT topics (see below).
+
+### Home Assistant configuration
+
+HA must publish room temperature and the desired setpoint to two MQTT topics. Use a state-change automation:
+
+```yaml
+automation:
+  - alias: "Sync room temperature to HeishaMon"
+    trigger:
+      - platform: state
+        entity_id: sensor.room_temperature
+    action:
+      - service: mqtt.publish
+        data:
+          topic: panasonic_heat_pump/opentherm/read/roomTemp
+          payload: "{{ states('sensor.room_temperature') }}"
+      - service: mqtt.publish
+        data:
+          topic: panasonic_heat_pump/opentherm/read/roomTempSet
+          payload: "{{ states('input_number.room_setpoint') }}"
+```
+
+**MQTT topics:**
+
+| Topic | Content | Direction |
+|-------|---------|-----------|
+| `panasonic_heat_pump/opentherm/read/roomTemp` | Actual room temperature (float °C) | HA → HeishaMon |
+| `panasonic_heat_pump/opentherm/read/roomTempSet` | Desired room setpoint (float °C) | HA → HeishaMon |
+
+HeishaMon's `mqttOTCallback` receives these, stores them in memory, and fires the `?roomTemp` rules event — which immediately recalculates `#rtcShift`. The shift is also recalculated each time timer=3 (min-freq control, every 30 s) runs.
+
+## Soft-Start Control
+
+### What problem it solves
+
+At startup in mild weather (outdoor 0–8 °C), the compressor must produce a minimum amount of heat even when the house needs very little. Without compensation, the setpoint is reached quickly, the HP turns off, and a short time later the cycle repeats — wasted energy, compressor wear, and noise.
+
+**Soft-start** keeps the setpoint *below* the weather curve for the first ~13 minutes after compressor startup, giving the HP a moving target to chase while it warms up at minimum frequency. Once the ramp completes, the setpoint rises back to the normal curve value.
+
+### Square-root ramp shape
+
+The shift follows a square-root curve from `−maxShift` back to `0`:
+
+```
+softStartShift = floor(maxShift * (sqrt(compRunSec / duration) - 1))
+```
+
+| Time (s) | Shape |
+|---------|-------|
+| t = 0 | shift = −maxShift (e.g. −5 °C) — immediate full downshift |
+| t < duration | fast initial rise, then decelerating as compressor warms up |
+| t = duration | shift = 0 — ramp complete, back to normal curve |
+
+**ASCII illustration** (maxShift = 5, duration = 780 s):
+
+```
+ Shift (°C)
+  0 │                                         ─────────
+    │                               ─────────
+ -1 │                       ────────
+    │              ─────────
+ -3 │      ────────
+    │  ─────
+ -5 │──
+    └──┬──────┬──────┬──────┬──────┬──── time (s)
+       0    100    200    400    600   780
+```
+
+### Interaction with min-freq shift
+
+Both soft-start and min-freq can shift the setpoint. Rather than stacking, the **most negative** shift wins:
+
+```
+effectiveShift = min(dynamicShift, softStartShift)
+finalSetpoint  = calculatedSetpoint + effectiveShift + rtcShift
+```
+
+This means whichever control is more aggressive (wants a lower setpoint) takes priority.
+
+### Tuning parameters
+
+| Parameter | Default | Meaning | Tuning guidance |
+|-----------|---------|---------|-----------------|
+| `softStartDuration` | 780 s | Ramp duration | Match your HP's warm-up time. Shorter (e.g. 480 s) for a small/fast HP; longer (e.g. 1200 s) if cycling persists |
+| `softStartMaxShift` | 5 °C | Maximum downshift at startup | Start at 5 °C. Increase if HP still short-cycles; decrease if you see overshoot |
+| `softStartOutdoorMax` | 8 °C | Only apply when outdoor ≤ this | Above ~8 °C, heat loss is high enough that the HP won't short-cycle without help |
+
+### Enabling / disabling
+
+Set `#enableSoftStart` in the rules boot section:
+
+```
+#enableSoftStart = 1;   -- 1 = on, 0 = off (default: 1)
+```
+
+Setting to `0` bypasses all soft-start logic (`#softStartShift` stays 0) without redeploying.
+
+## Feature Flags & Configuration Reference
+
+| Flag / Parameter | Default | Feature | Description |
+|-----------------|---------|---------|-------------|
+| `enableMinFreq` | 1 | Min-freq | Enable minimum-frequency setpoint shift (timer=3) |
+| `enableRTC` | 1 | RTC | Enable room temperature control via HA MQTT |
+| `enableSoftStart` | 1 | Soft-start | Enable soft-start ramp on compressor startup |
+| `enablePumpControl` | 1 | Pump | Enable pump speed control (timer=4) |
+| `minFreqMargin` | 3 °C | Min-freq | Keep setpoint this many °C above inlet temp |
+| `softStartDuration` | 780 s | Soft-start | Duration of the ramp from −maxShift to 0 |
+| `softStartMaxShift` | 5 °C | Soft-start | Maximum setpoint reduction at compressor startup |
+| `softStartOutdoorMax` | 8 °C | Soft-start | Only active when outdoor ≤ this temperature |
+| `pumpDutyHigh` | 140 | Pump | Pump duty when compressor is running |
+| `pumpDutyLow` | 93 | Pump | Pump duty when compressor is off |

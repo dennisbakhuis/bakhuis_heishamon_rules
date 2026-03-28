@@ -9,6 +9,13 @@ Covers:
   E - Compressor on:  pump duty → pumpDutyHigh
   F - Boot initialization: all globals set correctly
   G - Weather curve accuracy: spot-check interpolated setpoints
+  H - RTC corrections: parametrised delta → expected rtcShift
+  I - RTC disabled: rtcShift stays 0 regardless of delta
+  J - RTC missing sensor: rtcShift stays 0 when ?roomTemp not set
+  K - Soft-start ramp: sqrt curve at various compRunSec values
+  L - Soft-start disabled: shift stays 0 when enableSoftStart=0
+  M - Soft-start warm outdoor: shift stays 0 when outdoor > softStartOutdoorMax
+  N - min(dynamicShift, softStartShift): most-negative shift wins
 """
 
 from __future__ import annotations
@@ -37,21 +44,21 @@ def fresh_sim() -> HeishaMonSimulator:
 
 class TestScenarioA_ColdDay:
     """
-    Outdoor=-5°C (cold), inlet=27°C, outlet=37°C (near setpoint), compressor running.
+    Outdoor=-5°C (cold), inlet=27°C, outlet=38°C (near setpoint), compressor running.
 
-    At -5°C the weather curve gives:
-      tempRange = 18 - (-10) = 28
-      setpointRange = 40 - 27 = 13
-      tempOffset = 18 - (-5) = 23
-      setpoint = ceil(27 + 23 * 13 / 28) = ceil(27 + 10.68) = ceil(37.68) = 38
+    At -5°C the weather curve gives (new 3-point piecewise, segment 1: -7°C to 5°C):
+      tempRange     = 5 - (-7) = 12
+      setpointRange = 40 - 33  = 7   (TargetLow - TargetMid)
+      tempOffset    = 5 - (-5) = 10  (curveOutdoorMid - outdoorTemp)
+      setpoint = ceil(33 + 10 * 7 / 12) = ceil(33 + 5.833) = ceil(38.833) = 39
 
-    outletDelta = 37 - 38 = -1  → Case 1 (outlet approaching setpoint)
-    targetShift = inlet(27) + margin(3) - setpoint(38) = -8
-    dynamicShift = max(-3, -8) = -3 (clamped)
+    outletDelta = 38 - 39 = -1  → Case 1 (outlet approaching setpoint)
+    targetShift = inlet(27) + margin(3) - setpoint(39) = -9
+    dynamicShift = max(-3, -9) = -3 (clamped)
 
-    With outlet=33 instead (delta=-5) we'd hit Case 2 (well below setpoint) →
+    With outlet=33 instead (delta=-6) we'd hit Case 2 (well below setpoint) →
     shift resets to 0, which is also correct but doesn't test the lowering path.
-    We use outlet=37 to specifically test Case 1.
+    We use outlet=38 to specifically test Case 1.
     """
 
     def setup_method(self):
@@ -59,7 +66,7 @@ class TestScenarioA_ColdDay:
         self.sim.set_sensors(
             Outside_Temp=-5.0,
             Main_Inlet_Temp=27.0,
-            Main_Outlet_Temp=37.0,  # near setpoint=38, triggers Case 1
+            Main_Outlet_Temp=38.0,  # near setpoint=39, triggers Case 1
             Compressor_Freq=30,
             Defrosting_State=0,
         )
@@ -79,12 +86,12 @@ class TestScenarioA_ColdDay:
         shift = self.sim.get_global("dynamicShift")
         assert shift == -3, f"Expected shift=-3 (clamped) but got {shift}"
 
-    def test_calculated_setpoint_is_38(self):
+    def test_calculated_setpoint_is_39(self):
         sp = self.sim.get_global("calculatedSetpoint")
-        assert sp == 38, f"Expected calculatedSetpoint=38 for outdoor=-5°C, got {sp}"
+        assert sp == 39, f"Expected calculatedSetpoint=39 for outdoor=-5°C, got {sp}"
 
     def test_final_setpoint_applied_is_reduced(self):
-        # finalSetpoint = calculatedSetpoint + dynamicShift = 38 + (-3) = 35
+        # finalSetpoint = calculatedSetpoint + dynamicShift = 39 + (-3) = 36
         last = self.sim.get_global("lastSetpoint")
         assert last is not None
         assert last < self.sim.get_global("calculatedSetpoint"), (
@@ -100,9 +107,11 @@ class TestScenarioB_MildDay:
     """
     Outdoor=12°C, inlet=27°C, outlet=30°C, compressor running.
 
-    At 12°C:
-      tempOffset = 18 - 12 = 6
-      setpoint = ceil(27 + 6 * 13 / 28) = ceil(27 + 2.79) = ceil(29.79) = 30
+    At 12°C the weather curve gives (new 3-point piecewise, segment 2: 5°C to 15°C):
+      tempRange     = 15 - 5   = 10
+      setpointRange = 33 - 28  = 5   (TargetMid - TargetHigh)
+      tempOffset    = 15 - 12  = 3   (curveOutdoorHigh - outdoorTemp)
+      setpoint = ceil(28 + 3 * 5 / 10) = ceil(28 + 1.5) = ceil(29.5) = 30
 
     outletDelta = 30 - 30 = 0  → Case 1 (outlet approaching setpoint)
     targetShift = inlet(27) + margin(3) - setpoint(30) = 0
@@ -238,19 +247,25 @@ class TestScenarioF_BootInit:
         self.sim.boot()
 
     def test_curve_outdoor_low(self):
-        assert self.sim.get_global("curveOutdoorLow") == -10
+        assert self.sim.get_global("curveOutdoorLow") == -7
+
+    def test_curve_outdoor_mid(self):
+        assert self.sim.get_global("curveOutdoorMid") == 5
 
     def test_curve_outdoor_high(self):
-        assert self.sim.get_global("curveOutdoorHigh") == 18
+        assert self.sim.get_global("curveOutdoorHigh") == 15
 
     def test_curve_target_low(self):
         assert self.sim.get_global("curveTargetLow") == 40
 
+    def test_curve_target_mid(self):
+        assert self.sim.get_global("curveTargetMid") == 33
+
     def test_curve_target_high(self):
-        assert self.sim.get_global("curveTargetHigh") == 27
+        assert self.sim.get_global("curveTargetHigh") == 28
 
     def test_min_setpoint(self):
-        assert self.sim.get_global("minSetpoint") == 25
+        assert self.sim.get_global("minSetpoint") == 20
 
     def test_max_setpoint(self):
         assert self.sim.get_global("maxSetpoint") == 42
@@ -291,6 +306,33 @@ class TestScenarioF_BootInit:
     def test_last_pump_duty_zero(self):
         assert self.sim.get_global("lastPumpDuty") == 0
 
+    def test_enable_rtc(self):
+        assert self.sim.get_global("enableRTC") == 1
+
+    def test_rtc_shift_zero(self):
+        assert self.sim.get_global("rtcShift") == 0
+
+    def test_enable_soft_start(self):
+        assert self.sim.get_global("enableSoftStart") == 1
+
+    def test_soft_start_duration(self):
+        assert self.sim.get_global("softStartDuration") == 780
+
+    def test_soft_start_max_shift(self):
+        assert self.sim.get_global("softStartMaxShift") == 5
+
+    def test_soft_start_outdoor_max(self):
+        assert self.sim.get_global("softStartOutdoorMax") == 8
+
+    def test_comp_state_zero(self):
+        assert self.sim.get_global("compState") == 0
+
+    def test_comp_run_sec_zero(self):
+        assert self.sim.get_global("compRunSec") == 0
+
+    def test_soft_start_shift_zero(self):
+        assert self.sim.get_global("softStartShift") == 0
+
     def test_timers_scheduled(self):
         # All four timers should have been scheduled
         timers = self.sim._interp.timers_
@@ -306,26 +348,43 @@ class TestScenarioF_BootInit:
 
 class TestScenarioG_WeatherCurveAccuracy:
     """
-    Verify calculateHeatingCurve produces the expected interpolated setpoints.
+    Verify calculateHeatingCurve produces the expected interpolated setpoints
+    for the 3-point piecewise WAR curve.
 
-    With the default curve (outdoor: -10→+18, setpoint: 40→27):
-      tempRange = 28, setpointRange = 13
+    Control points:
+      Cold: outdoor -7°C  → water 40°C
+      Mid:  outdoor  5°C  → water 33°C
+      Warm: outdoor 15°C  → water 28°C
 
-    At -10°C → 40 (clamped to curveTargetLow)
-    At  18°C → 27 (clamped to curveTargetHigh)
-    At   0°C: tempOffset = 18, setpoint = ceil(27 + 18*13/28) = ceil(27+8.36) = ceil(35.36) = 36
-    At  10°C: tempOffset =  8, setpoint = ceil(27 +  8*13/28) = ceil(27+3.71) = ceil(30.71) = 31
-    At  20°C → 27 (above high threshold, clamped)
-    At -15°C → 40 (below low threshold, clamped)
+    Segment 1 formula (outdoor in [-7, 5]):
+      ceil(33 + (5 - outdoor) * 7 / 12)
+        outdoor=-7:  ceil(33 + 12*7/12) = ceil(40.0)  = 40
+        outdoor=-2:  ceil(33 +  7*7/12) = ceil(37.08) = 38
+        outdoor= 0:  ceil(33 +  5*7/12) = ceil(35.92) = 36
+        outdoor=2.9: ceil(33 + 2.1*7/12)= ceil(34.23) = 35
+        outdoor= 5:  ceil(33 +  0*7/12) = ceil(33.0)  = 33
+
+    Segment 2 formula (outdoor in (5, 15]):
+      ceil(28 + (15 - outdoor) * 5 / 10)
+        outdoor= 5:  ceil(28 + 10*5/10) = ceil(33.0)  = 33
+        outdoor=10:  ceil(28 +  5*5/10) = ceil(30.5)  = 31
+        outdoor=15:  ceil(28 +  0*5/10) = ceil(28.0)  = 28
+
+    Clamping:
+      outdoor <= -7  → 40  (cold clamp)
+      outdoor >= 15  → 28  (warm clamp)
     """
 
     CASES = [
-        (-10,  40, "At coldest extreme, setpoint clamps to curveTargetLow"),
-        ( 18,  27, "At warmest extreme, setpoint clamps to curveTargetHigh"),
-        (  0,  36, "At 0°C, linear interpolation gives 36"),
-        ( 10,  31, "At 10°C, linear interpolation gives 31"),
-        ( 20,  27, "Above high threshold, setpoint clamps to curveTargetHigh"),
-        (-15,  40, "Below low threshold, setpoint clamps to curveTargetLow"),
+        (-10,  40, "Below cold clamp: setpoint = 40"),
+        ( -7,  40, "Cold endpoint: setpoint = 40"),
+        ( -2,  38, "Segment 1 at -2°C: ceil(33 + 7*7/12) = 38"),
+        (  0,  36, "Segment 1 at  0°C: ceil(33 + 5*7/12) = 36"),
+        (2.9,  35, "Segment 1 at 2.9°C: ceil(33 + 2.1*7/12) = 35"),
+        (  5,  33, "Mid endpoint: setpoint = 33"),
+        ( 10,  31, "Segment 2 at 10°C: ceil(28 + 5*5/10) = 31"),
+        ( 15,  28, "Warm endpoint: setpoint = 28"),
+        ( 20,  28, "Above warm clamp: setpoint = 28"),
     ]
 
     @pytest.fixture(autouse=True)
@@ -339,3 +398,309 @@ class TestScenarioG_WeatherCurveAccuracy:
         self.sim.call_function("calculateHeatingCurve", outdoor)
         result = self.sim.get_global("calculatedSetpoint")
         assert result == expected, f"{desc}: expected {expected}, got {result}"
+
+
+# ---------------------------------------------------------------------------
+# Scenario H — RTC corrections (parametrised)
+# ---------------------------------------------------------------------------
+
+class TestScenarioH_RTCCorrections:
+    """
+    Verify calculateRTC() produces the correct #rtcShift for each delta band.
+
+    Correction table (delta = ?roomTemp - ?roomTempSet):
+      delta > +1.5°C  → -3
+      +1.0 to +1.5°C  → -2
+      +0.5 to +1.0°C  → -1
+      -0.2 to +0.5°C  →  0  (dead band)
+      -0.4 to -0.2°C  → +1
+      -0.6 to -0.4°C  → +2
+      -2.0 to -0.6°C  → +3
+      < -2.0°C        → +4
+    """
+
+    CASES = [
+        (+2.0, -3, "delta=+2.0: well above +1.5 → -3"),
+        (+1.2, -2, "delta=+1.2: in (1.0, 1.5] → -2"),
+        (+0.7, -1, "delta=+0.7: in (0.5, 1.0] → -1"),
+        (+0.3,  0, "delta=+0.3: in dead band [-0.2, 0.5] → 0"),
+        ( 0.0,  0, "delta=0.0: in dead band → 0"),
+        (-0.3, +1, "delta=-0.3: in [-0.4, -0.2) → +1"),
+        (-0.5, +2, "delta=-0.5: in [-0.6, -0.4) → +2"),
+        (-1.0, +3, "delta=-1.0: in [-2.0, -0.6) → +3"),
+        (-3.0, +4, "delta=-3.0: below -2.0 → +4"),
+    ]
+
+    @pytest.fixture(autouse=True)
+    def setup(self):
+        self.sim = HeishaMonSimulator()
+        self.sim.set_sensors(Outside_Temp=10.0)
+        self.sim.boot()
+        # Ensure RTC is enabled
+        self.sim.set_globals(enableRTC=1)
+
+    @pytest.mark.parametrize("delta,expected_shift,desc", CASES)
+    def test_rtc_shift(self, delta: float, expected_shift: int, desc: str):
+        room_setpoint = 21.0
+        room_temp = room_setpoint + delta
+        self.sim.set_opentherm(roomTemp=room_temp, roomTempSet=room_setpoint)
+        self.sim.call_function("calculateRTC")
+        result = self.sim.get_global("rtcShift")
+        assert result == expected_shift, f"{desc}: expected {expected_shift}, got {result}"
+
+
+# ---------------------------------------------------------------------------
+# Scenario I — RTC disabled
+# ---------------------------------------------------------------------------
+
+class TestScenarioI_RTCDisabled:
+    """
+    When #rtcEnabled = 0, calculateRTC() should always set #rtcShift = 0
+    regardless of the room temperature delta.
+    """
+
+    def setup_method(self):
+        self.sim = HeishaMonSimulator()
+        self.sim.set_sensors(Outside_Temp=10.0)
+        self.sim.boot()
+        # Disable RTC
+        self.sim.set_globals(enableRTC=0)
+        # Set room temperatures with a large delta that would normally give -3
+        self.sim.set_opentherm(roomTemp=24.0, roomTempSet=21.0)  # delta = +3.0
+
+    def test_rtc_shift_zero_when_disabled(self):
+        self.sim.call_function("calculateRTC")
+        shift = self.sim.get_global("rtcShift")
+        assert shift == 0, f"Expected rtcShift=0 when disabled, got {shift}"
+
+    def test_rtc_shift_stays_zero_after_multiple_calls(self):
+        """RTC shift remains 0 across multiple calls when disabled."""
+        for _ in range(3):
+            self.sim.call_function("calculateRTC")
+        shift = self.sim.get_global("rtcShift")
+        assert shift == 0, f"Expected rtcShift=0 after multiple calls, got {shift}"
+
+
+# ---------------------------------------------------------------------------
+# Scenario J — RTC with missing sensor
+# ---------------------------------------------------------------------------
+
+class TestScenarioJ_RTCMissingSensor:
+    """
+    When ?roomTemp is not set (sensor not available), calculateRTC() should
+    set #rtcShift = 0 (safe fallback, no adjustment).
+    """
+
+    def setup_method(self):
+        self.sim = HeishaMonSimulator()
+        self.sim.set_sensors(Outside_Temp=10.0)
+        self.sim.boot()
+        # RTC enabled, but DO NOT set roomTemp or roomTempSet
+
+    def test_rtc_shift_zero_when_roomtemp_missing(self):
+        self.sim.call_function("calculateRTC")
+        shift = self.sim.get_global("rtcShift")
+        assert shift == 0, f"Expected rtcShift=0 when sensor missing, got {shift}"
+
+    def test_rtc_shift_zero_when_only_roomtempset_missing(self):
+        """Only roomTemp set but roomTempSet missing → shift stays 0."""
+        self.sim.set_opentherm(roomTemp=22.0)
+        self.sim.call_function("calculateRTC")
+        shift = self.sim.get_global("rtcShift")
+        assert shift == 0, f"Expected rtcShift=0 when roomTempSet missing, got {shift}"
+
+
+# ---------------------------------------------------------------------------
+# Scenario K — Soft-start ramp
+# ---------------------------------------------------------------------------
+
+class TestScenarioK_SoftStartRamp:
+    """
+    Verify calculateSoftStart() produces the correct #softStartShift for the
+    square-root ramp curve at various #compRunSec values.
+
+    Formula: shift = floor(maxShift * (sqrt(compRunSec / duration) - 1))
+    Parameters: duration=780, maxShift=5, outdoor=-2 (≤ softStartOutdoorMax=8)
+
+    Expected values:
+      compRunSec=0   → floor(5*(sqrt(0/780)   -1)) = floor(-5.000) = -5
+      compRunSec=100 → floor(5*(sqrt(100/780) -1)) = floor(-3.210) = -4
+      compRunSec=400 → floor(5*(sqrt(400/780) -1)) = floor(-1.419) = -2
+      compRunSec=700 → floor(5*(sqrt(700/780) -1)) = floor(-0.263) = -1
+      compRunSec=780 → floor(5*(sqrt(780/780) -1)) = floor( 0.000) =  0
+      compRunSec=900 → beyond duration → 0
+    """
+
+    CASES = [
+        (0,    -5, "compRunSec=0: full downshift"),
+        (100,  -4, "compRunSec=100: floor(-3.21)=-4"),
+        (400,  -2, "compRunSec=400: floor(-1.42)=-2"),
+        (700,  -1, "compRunSec=700: floor(-0.26)=-1"),
+        (780,   0, "compRunSec=780: ramp complete, shift=0"),
+        (900,   0, "compRunSec=900: beyond duration, shift=0"),
+    ]
+
+    @pytest.fixture(autouse=True)
+    def setup(self):
+        self.sim = HeishaMonSimulator()
+        self.sim.set_sensors(Outside_Temp=10.0)
+        self.sim.boot()
+
+    @pytest.mark.parametrize("comp_run_sec,expected_shift,desc", CASES)
+    def test_soft_start_shift(self, comp_run_sec: int, expected_shift: int, desc: str):
+        self.sim.set_globals(
+            enableSoftStart=1,
+            OutsideTemp=-2,          # ≤ softStartOutdoorMax (8)
+            softStartDuration=780,
+            softStartMaxShift=5,
+            softStartOutdoorMax=8,
+            compRunSec=comp_run_sec,
+        )
+        self.sim.call_function("calculateSoftStart")
+        shift = self.sim.get_global("softStartShift")
+        assert shift == expected_shift, f"{desc}: expected {expected_shift}, got {shift}"
+
+
+# ---------------------------------------------------------------------------
+# Scenario L — Soft-start disabled
+# ---------------------------------------------------------------------------
+
+class TestScenarioL_SoftStartDisabled:
+    """
+    When #enableSoftStart = 0, calculateSoftStart() should always set
+    #softStartShift = 0 regardless of compRunSec.
+    """
+
+    def setup_method(self):
+        self.sim = HeishaMonSimulator()
+        self.sim.set_sensors(Outside_Temp=10.0)
+        self.sim.boot()
+        self.sim.set_globals(
+            enableSoftStart=0,    # disabled
+            OutsideTemp=-2,
+            softStartDuration=780,
+            softStartMaxShift=5,
+            softStartOutdoorMax=8,
+            compRunSec=100,       # mid-ramp — would normally give non-zero shift
+        )
+
+    def test_shift_zero_when_disabled(self):
+        self.sim.call_function("calculateSoftStart")
+        shift = self.sim.get_global("softStartShift")
+        assert shift == 0, f"Expected softStartShift=0 when disabled, got {shift}"
+
+
+# ---------------------------------------------------------------------------
+# Scenario M — Soft-start warm outdoor (outdoor > softStartOutdoorMax)
+# ---------------------------------------------------------------------------
+
+class TestScenarioM_SoftStartWarmOutdoor:
+    """
+    When outdoor temperature exceeds #softStartOutdoorMax, calculateSoftStart()
+    should set #softStartShift = 0 (heat loss too low to absorb minimum output).
+    """
+
+    def setup_method(self):
+        self.sim = HeishaMonSimulator()
+        self.sim.set_sensors(Outside_Temp=10.0)
+        self.sim.boot()
+        self.sim.set_globals(
+            enableSoftStart=1,
+            OutsideTemp=10,       # > softStartOutdoorMax (8) — warm outdoor
+            softStartDuration=780,
+            softStartMaxShift=5,
+            softStartOutdoorMax=8,
+            compRunSec=100,       # mid-ramp — would normally give non-zero shift
+        )
+
+    def test_shift_zero_when_warm_outdoor(self):
+        self.sim.call_function("calculateSoftStart")
+        shift = self.sim.get_global("softStartShift")
+        assert shift == 0, (
+            f"Expected softStartShift=0 when outdoor={10} > outdoorMax={8}, got {shift}"
+        )
+
+    def test_shift_zero_at_exact_boundary(self):
+        """outdoor == softStartOutdoorMax is still active (≤ condition)."""
+        self.sim.set_globals(OutsideTemp=8, compRunSec=100)
+        self.sim.call_function("calculateSoftStart")
+        shift = self.sim.get_global("softStartShift")
+        # At boundary (8 ≤ 8): ramp IS active
+        # floor(5*(sqrt(100/780)-1)) = -4
+        assert shift == -4, (
+            f"Expected softStartShift=-4 at exact boundary (outdoor=8 ≤ max=8), got {shift}"
+        )
+
+
+# ---------------------------------------------------------------------------
+# Scenario N — min(dynamicShift, softStartShift) logic
+# ---------------------------------------------------------------------------
+
+class TestScenarioN_MinDynamicSoftStartShift:
+    """
+    Verify that the final setpoint in timer=3 uses min(dynamicShift, softStartShift),
+    so whichever shift is more negative wins.
+
+    Setup: calculatedSetpoint=35, outlet=32 (outletDelta=-3 → case 3: no recalc).
+    dynamicShift is pre-set and preserved; softStartShift is pre-set.
+
+    Case 1: dynamicShift=-1, softStartShift=-3
+      → effectiveShift=-3, finalSetpoint = 35 + (-3) + 0 = 32  (soft-start wins)
+
+    Case 2: dynamicShift=-3, softStartShift=-1
+      → effectiveShift=-3, finalSetpoint = 35 + (-3) + 0 = 32  (min-freq wins)
+
+    Both together validate that min() is used (not just one shift).
+    If only dynamicShift were used: case 1 → 34, case 2 → 32.
+    If only softStartShift were used: case 1 → 32, case 2 → 34.
+    Only min() gives 32 for BOTH cases.
+    """
+
+    def _setup_case(self, dynamic_shift: int, soft_start_shift: int) -> HeishaMonSimulator:
+        sim = fresh_sim()
+        # Outlet in case-3 zone (outletDelta = -3, between -4 and -2) → shift unchanged
+        sim.set_sensors(
+            Main_Outlet_Temp=32.0,   # calculatedSetpoint=35 → delta=-3 (case 3)
+            Main_Inlet_Temp=28.0,
+            Defrosting_State=0,
+        )
+        sim.set_globals(
+            calculatedSetpoint=35,
+            dynamicShift=dynamic_shift,
+            softStartShift=soft_start_shift,
+            enableMinFreq=1,
+            lastSetpoint=0,
+            rtcShift=0,
+            minFreqMargin=3,
+            minSetpoint=20,
+            maxSetpoint=42,
+            hysteresis=0.5,
+        )
+        return sim
+
+    def test_soft_start_wins(self):
+        """dynamicShift=-1, softStartShift=-3 → effective=-3 → setpoint=32."""
+        sim = self._setup_case(dynamic_shift=-1, soft_start_shift=-3)
+        sim.fire_timer(3)
+        setpoint = sim.get_sensor("SetZ1HeatRequestTemperature")
+        assert setpoint == 32, (
+            f"Expected setpoint=32 (soft-start wins: min(-1,-3)=-3), got {setpoint}"
+        )
+
+    def test_min_freq_wins(self):
+        """dynamicShift=-3, softStartShift=-1 → effective=-3 → setpoint=32."""
+        sim = self._setup_case(dynamic_shift=-3, soft_start_shift=-1)
+        sim.fire_timer(3)
+        setpoint = sim.get_sensor("SetZ1HeatRequestTemperature")
+        assert setpoint == 32, (
+            f"Expected setpoint=32 (min-freq wins: min(-3,-1)=-3), got {setpoint}"
+        )
+
+    def test_shifts_equal(self):
+        """dynamicShift=-2, softStartShift=-2 → effective=-2 → setpoint=33."""
+        sim = self._setup_case(dynamic_shift=-2, soft_start_shift=-2)
+        sim.fire_timer(3)
+        setpoint = sim.get_sensor("SetZ1HeatRequestTemperature")
+        assert setpoint == 33, (
+            f"Expected setpoint=33 (equal shifts: min(-2,-2)=-2), got {setpoint}"
+        )

@@ -1,0 +1,119 @@
+# ============================================================
+# sensors.yaml — Optional MQTT & Template Sensor Definitions
+# for Heating Manager Dashboard
+#
+# INSTRUCTIONS:
+#   Add the relevant blocks below to your configuration.yaml.
+#   Restart Home Assistant after adding.
+#
+# See README.md for full context and step-by-step setup guide.
+# ============================================================
+
+
+# ============================================================
+# MQTT SENSORS (Room temperature for RTC via OpenTherm)
+#
+# Add these under the existing `mqtt:` block in configuration.yaml,
+# inside the `sensor:` list. If you don't have an `mqtt:` block yet,
+# create one:
+#
+#   mqtt:
+#     sensor:
+#       - name: ...
+#
+# These sensors read the room temperature and setpoint that HA
+# publishes to HeishaMon via MQTT (see automations.yaml).
+# The topics below are HeishaMon's OpenTherm write topics.
+# ============================================================
+
+# Paste into configuration.yaml → mqtt: → sensor:
+#
+# - name: "Heishamon Room Temperature"
+#   unique_id: heishamon_room_temperature
+#   state_topic: "panasonic_heat_pump/opentherm/write/roomTemp"
+#   unit_of_measurement: "°C"
+#   device_class: temperature
+#   state_class: measurement
+#   # HA publishes to this topic via the RTC automation (see automations.yaml)
+#
+# - name: "Heishamon Room Setpoint"
+#   unique_id: heishamon_room_setpoint
+#   state_topic: "panasonic_heat_pump/opentherm/write/roomTempSet"
+#   unit_of_measurement: "°C"
+#   device_class: temperature
+#   state_class: measurement
+#   # HA publishes to this topic via the RTC automation (see automations.yaml)
+
+
+# ============================================================
+# TEMPLATE SENSORS (COP — Coefficient of Performance)
+#
+# The heishamon.yaml integration already defines these sensors:
+#   - sensor.heishamon_cop        (combined: heat + DHW + cool)
+#   - sensor.heishamon_heat_cop   (heat only)
+#   - sensor.heishamon_dhw_cop    (DHW only)
+#   - sensor.heishamon_cool_cop   (cool only)
+#
+# If you are NOT using the full heishamon.yaml package, you can
+# add the standalone version below instead.
+#
+# Paste into configuration.yaml → template: → sensor:
+# ============================================================
+
+# Standalone COP template sensor (only needed if NOT using heishamon.yaml)
+#
+# template:
+#   - sensor:
+#       - name: "Aquarea Heat COP"
+#         unique_id: aquarea_heat_cop_standalone
+#         unit_of_measurement: "x"
+#         icon: mdi:percent
+#         state: >
+#           {% set produced = states('sensor.aquarea_heat_power_produced') | float(0) %}
+#           {% set consumed = states('sensor.aquarea_heat_power_consumed') | float(0) %}
+#           {% if consumed > 0 %}
+#             {{ (produced / consumed) | round(2) }}
+#           {% else %}
+#             unavailable
+#           {% endif %}
+#         availability: >
+#           {{ is_number(states('sensor.aquarea_heat_power_produced')) and
+#              is_number(states('sensor.aquarea_heat_power_consumed')) }}
+#
+#       - name: "Aquarea Total Power Produced"
+#         unique_id: aquarea_total_power_produced_standalone
+#         unit_of_measurement: "W"
+#         device_class: power
+#         state_class: measurement
+#         state: >
+#           {{ states('sensor.aquarea_heat_power_produced') | float(0) +
+#              states('sensor.aquarea_dhw_power_produced') | float(0) +
+#              states('sensor.aquarea_cool_power_produced') | float(0) }}
+#
+#       - name: "Aquarea Total Power Consumed"
+#         unique_id: aquarea_total_power_consumed_standalone
+#         unit_of_measurement: "W"
+#         device_class: power
+#         state_class: measurement
+#         state: >
+#           {{ states('sensor.aquarea_heat_power_consumed') | float(0) +
+#              states('sensor.aquarea_dhw_power_consumed') | float(0) +
+#              states('sensor.aquarea_cool_power_consumed') | float(0) }}
+
+
+# ============================================================
+# NOTES
+#
+# If you are using the full heishamon.yaml integration package,
+# the following sensors are already defined for you:
+#
+#   sensor.heishamon_cop            Combined COP
+#   sensor.heishamon_heat_cop       Heat-only COP
+#   sensor.heishamon_dhw_cop        DHW-only COP
+#   sensor.heishamon_cool_cop       Cool-only COP
+#   sensor.heishamon_power_produced Combined power produced (W)
+#   sensor.heishamon_power_consumed Combined power consumed (W)
+#
+# The dashboard uses these entity IDs. If your instance uses
+# different IDs, update dashboard.yaml accordingly.
+# ============================================================

@@ -1,0 +1,342 @@
+# ============================================================
+# Heating Manager — Home Assistant Lovelace Dashboard
+# For Panasonic Aquarea via HeishaMon
+#
+# Built-in cards only — no HACS / custom cards required.
+# See README.md for installation instructions.
+#
+# Entity IDs are based on the standard HeishaMon HA integration
+# (heishamon.yaml). Adjust any entity_id prefix if your HA
+# instance generated different names during first import.
+# ============================================================
+
+title: Heating Manager
+views:
+  - title: Heat Pump
+    path: heat-pump
+    icon: mdi:heat-pump
+    badges: []
+    cards:
+
+      # ===========================================================
+      # SECTION 1 — STATUS BAR
+      # Quick at-a-glance indicators across the top of the dashboard.
+      # Shows whether the pump is running, current operating mode,
+      # defrost activity, quiet mode, and compressor load.
+      # ===========================================================
+      - type: vertical-stack
+        cards:
+          - type: markdown
+            content: "## 🌡️ Heat Pump Status"
+
+          - type: horizontal-stack
+            cards:
+
+              # HP on/off state
+              - type: entity
+                entity: sensor.aquarea_power_state
+                name: HP State
+                icon: mdi:power
+                # Optional Mushroom alternative (requires HACS):
+                # type: custom:mushroom-entity-card
+                # entity: sensor.aquarea_power_state
+                # name: HP State
+
+              # Operating mode (Heat / DHW / Heat+DHW / etc.)
+              - type: entity
+                entity: sensor.aquarea_mode
+                name: Mode
+                icon: mdi:cog-outline
+
+              # Defrost state — visually stands out when active
+              - type: entity
+                entity: sensor.aquarea_defrost_state
+                name: Defrost
+                icon: mdi:snowflake-melt
+                # Note: HA will show "Active" / "Inactive" (mapped in heishamon.yaml)
+                # To highlight red when active, use a conditional card (see below)
+
+              # Quiet mode level (Off / 1 / 2 / 3 / Scheduled)
+              - type: entity
+                entity: sensor.aquarea_quiet_mode
+                name: Quiet Mode
+                icon: mdi:volume-off
+
+              # Compressor frequency — proxy for how hard the HP is working
+              - type: entity
+                entity: sensor.aquarea_compressor_frequency
+                name: Compressor
+                icon: mdi:sine-wave
+                unit: Hz
+
+          # Defrost alert — only visible when defrost is active
+          - type: conditional
+            conditions:
+              - entity: sensor.aquarea_defrost_state
+                state: Active
+            card:
+              type: markdown
+              content: >
+                ⚠️ **Defrost cycle active** — heat output is temporarily reduced.
+              style: |
+                ha-card {
+                  background-color: var(--error-color, #db4437);
+                  color: white;
+                }
+
+      # ===========================================================
+      # SECTION 2 — TEMPERATURE OVERVIEW
+      # Current measured temperatures across the system.
+      # Room temperature and setpoint require additional MQTT sensors
+      # — see README.md and sensors.yaml for setup instructions.
+      # ===========================================================
+      - type: vertical-stack
+        cards:
+          - type: markdown
+            content: "## 🌡️ Temperatures"
+
+          - type: glance
+            title: Current Temperatures
+            columns: 3
+            entities:
+              - entity: sensor.aquarea_outside_ambient_temperature
+                name: Outdoor
+                icon: mdi:thermometer
+
+              - entity: sensor.aquarea_outside_pipe_temperature
+                name: Outside Pipe
+                icon: mdi:pipe
+
+              - entity: sensor.aquarea_inlet_temperature
+                name: Inlet
+                icon: mdi:thermometer-water
+
+              - entity: sensor.aquarea_outlet_temperature
+                name: Outlet
+                icon: mdi:thermometer-high
+
+              - entity: sensor.aquarea_z1_heat_request_temperature
+                name: Z1 Target
+                icon: mdi:target
+
+              - entity: sensor.aquarea_z1_water_temperature
+                name: Z1 Water
+                icon: mdi:water-thermometer
+
+              # These entities require MQTT sensor setup (see sensors.yaml)
+              - entity: sensor.heishamon_room_temperature
+                name: Room Temp
+                icon: mdi:home-thermometer
+
+              - entity: sensor.heishamon_room_setpoint
+                name: Room Target
+                icon: mdi:home-thermometer-outline
+
+      # ===========================================================
+      # SECTION 3 — TEMPERATURE HISTORY GRAPH
+      # 24-hour trend of the key thermal values.
+      # Built-in history-graph card — no dependencies needed.
+      # ===========================================================
+      - type: vertical-stack
+        cards:
+          - type: markdown
+            content: "## 📈 Temperature History (24h)"
+
+          - type: history-graph
+            title: Temperature Trends
+            hours_to_show: 24
+            refresh_interval: 60
+            entities:
+              - entity: sensor.aquarea_outlet_temperature
+                name: Outlet
+              - entity: sensor.aquarea_inlet_temperature
+                name: Inlet
+              - entity: sensor.aquarea_outside_ambient_temperature
+                name: Outdoor
+              - entity: sensor.aquarea_z1_heat_request_temperature
+                name: Z1 Target (Setpoint)
+
+      # ===========================================================
+      # SECTION 4 — POWER & EFFICIENCY
+      # Heat power produced and consumed, live COP, and power history.
+      #
+      # COP = Coefficient of Performance = heat_out / electricity_in
+      # A COP of 3.0 means 3 kWh of heat for every 1 kWh of electricity.
+      #
+      # sensor.heishamon_cop is the combined COP template sensor defined
+      # in heishamon.yaml (heat + DHW + cool). sensor.heishamon_heat_cop
+      # tracks heat-only COP.
+      # ===========================================================
+      - type: vertical-stack
+        cards:
+          - type: markdown
+            content: "## ⚡ Power & Efficiency"
+
+          - type: glance
+            title: Power Now
+            columns: 3
+            entities:
+              - entity: sensor.aquarea_heat_power_produced
+                name: Heat Produced
+                icon: mdi:radiator
+
+              - entity: sensor.aquarea_heat_power_consumed
+                name: Electricity In
+                icon: mdi:lightning-bolt
+
+              - entity: sensor.heishamon_power_produced
+                name: Total Produced
+                icon: mdi:solar-power-variant
+
+              - entity: sensor.heishamon_power_consumed
+                name: Total Consumed
+                icon: mdi:transmission-tower
+
+              # COP template sensors from heishamon.yaml
+              - entity: sensor.heishamon_cop
+                name: COP (all)
+                icon: mdi:percent
+
+              - entity: sensor.heishamon_heat_cop
+                name: COP (heat)
+                icon: mdi:fire
+
+          # COP markdown card — shows live value with context
+          # Uses the template sensor defined in heishamon.yaml
+          - type: markdown
+            title: Live Efficiency
+            content: >
+              ### COP (Combined): {{ states('sensor.heishamon_cop') }} ×
+
+              ### COP (Heat only): {{ states('sensor.heishamon_heat_cop') }} ×
+
+              > _COP > 3 is good. COP > 4 is excellent for floor heating._
+
+          # 24-hour power history graph
+          - type: history-graph
+            title: Power History (24h)
+            hours_to_show: 24
+            refresh_interval: 60
+            entities:
+              - entity: sensor.aquarea_heat_power_produced
+                name: Heat Produced (W)
+              - entity: sensor.aquarea_heat_power_consumed
+                name: Heat Consumed (W)
+              - entity: sensor.heishamon_power_produced
+                name: Total Produced (W)
+              - entity: sensor.heishamon_power_consumed
+                name: Total Consumed (W)
+
+      # ===========================================================
+      # SECTION 5 — HEISHAMON RULES STATE
+      # Reflects the calculated values driven by the rules engine
+      # running on HeishaMon. The Z1 heat request temperature IS
+      # the calculated setpoint output by the weather compensation
+      # or RTC rules. Pump flow, compressor freq, and valve state
+      # confirm the HP is acting on those rules.
+      #
+      # sensor.heishamon_room_temperature and
+      # sensor.heishamon_room_setpoint require MQTT sensors — see
+      # sensors.yaml and README.md for setup.
+      # ===========================================================
+      - type: vertical-stack
+        cards:
+          - type: markdown
+            content: "## 🔧 HeishaMon Rules State"
+
+          - type: entities
+            title: Calculated Setpoints & Rule Outputs
+            entities:
+              # Z1 heat request = effective setpoint calculated by rules
+              - entity: sensor.aquarea_z1_heat_request_temperature
+                name: Z1 Heat Request (Calculated Setpoint)
+                icon: mdi:thermometer-check
+
+              - entity: sensor.aquarea_z1_water_target_temperature
+                name: Z1 Water Target
+                icon: mdi:target
+
+              # Room temp and setpoint (RTC — needs MQTT sensors, see README)
+              - entity: sensor.heishamon_room_temperature
+                name: Room Temperature (RTC input)
+                icon: mdi:home-thermometer
+
+              - entity: sensor.heishamon_room_setpoint
+                name: Room Setpoint (RTC target)
+                icon: mdi:home-thermometer-outline
+
+              - type: divider
+
+              # HP response metrics — confirm rules are being followed
+              - entity: sensor.aquarea_pump_flow
+                name: Pump Flow
+                icon: mdi:water-pump
+
+              - entity: sensor.aquarea_compressor_frequency
+                name: Compressor Frequency
+                icon: mdi:sine-wave
+
+              - entity: sensor.aquarea_3_way_valve
+                name: 3-Way Valve (Room / Tank)
+                icon: mdi:valve
+
+              # input_number controls exposed by heishamon.yaml
+              - type: divider
+              - entity: input_number.heishamon_heatshift_z1
+                name: Z1 Setpoint Input (manual override)
+                icon: mdi:tune
+
+              - entity: input_select.heishamon_heatmode
+                name: Heat Mode Selector
+                icon: mdi:format-list-bulleted
+
+              - entity: input_select.heishamon_quietmode
+                name: Quiet Mode Selector
+                icon: mdi:volume-off
+
+      # ===========================================================
+      # SECTION 6 — OPERATIONAL STATS
+      # Lifetime and current-session counters for the compressor
+      # and pump. Useful for maintenance planning and wear tracking.
+      # ===========================================================
+      - type: vertical-stack
+        cards:
+          - type: markdown
+            content: "## 📊 Operational Stats"
+
+          - type: entities
+            title: Compressor & Pump
+            entities:
+              - entity: sensor.aquarea_compressor_operating_hours
+                name: Compressor Operating Hours
+                icon: mdi:clock-outline
+
+              - entity: sensor.aquarea_compressor_start_stop_counter
+                name: Compressor Starts / Stops
+                icon: mdi:counter
+
+              - entity: sensor.aquarea_pump_flow
+                name: Pump Flow
+                icon: mdi:water-pump
+
+              - entity: sensor.aquarea_pump_speed
+                name: Pump Speed
+                icon: mdi:speedometer
+
+              - type: divider
+
+              - entity: sensor.aquarea_fan_1_speed
+                name: Fan 1 Speed
+                icon: mdi:fan
+
+              - entity: sensor.aquarea_fan_2_speed
+                name: Fan 2 Speed
+                icon: mdi:fan
+
+              - entity: sensor.aquarea_compressor_current
+                name: Compressor Current
+                icon: mdi:current-ac
+
+              - entity: sensor.aquarea_last_error
+                name: Last Error Code
+                icon: mdi:alert-circle-outline

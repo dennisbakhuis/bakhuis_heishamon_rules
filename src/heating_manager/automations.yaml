@@ -1,0 +1,84 @@
+# ============================================================
+# automations.yaml — Room Temperature Sync for HeishaMon RTC
+#
+# PURPOSE:
+#   HeishaMon's Room Temperature Control (RTC) feature adjusts
+#   the heat pump setpoint based on measured room temperature.
+#   HeishaMon reads this value via MQTT (OpenTherm emulation).
+#
+#   This automation keeps HeishaMon informed of the current room
+#   temperature and target setpoint by publishing to its MQTT topics
+#   whenever the room sensor changes, and every 5 minutes as a
+#   keepalive (in case HA restarts or MQTT reconnects).
+#
+# SETUP REQUIRED:
+#   1. Replace `sensor.your_room_temperature_sensor` with the
+#      entity_id of your actual room temperature sensor in HA.
+#   2. Replace `input_number.room_setpoint` with wherever you store
+#      your desired room temperature target (input_number, climate, etc.)
+#   3. Add this automation to HA via:
+#      - Settings → Automations → Import → paste below, OR
+#      - Add to automations.yaml if using file-based config
+#
+# MQTT TOPICS:
+#   HeishaMon reads room temp from: panasonic_heat_pump/opentherm/read/roomTemp
+#   HeishaMon reads room setpoint:  panasonic_heat_pump/opentherm/read/roomTempSet
+#
+# NOTE:
+#   The MQTT sensors in sensors.yaml subscribe to the "write" topics
+#   (HeishaMon echoes back what it received). This lets you verify
+#   in HA that HeishaMon actually received the values.
+# ============================================================
+
+- alias: "HeishaMon: Sync room temperature to MQTT"
+  id: heishamon_sync_room_temperature
+  description: >
+    Publishes the current room temperature and setpoint to HeishaMon
+    via MQTT for Room Temperature Control (RTC). Runs on sensor change
+    and every 5 minutes as a keepalive.
+  mode: single
+  max_exceeded: silent
+
+  trigger:
+    # Trigger immediately when room temperature changes
+    - platform: state
+      entity_id: sensor.your_room_temperature_sensor  # <-- REPLACE THIS
+
+    # Also sync every 5 minutes to survive HA restarts / MQTT reconnects
+    - platform: time_pattern
+      minutes: "/5"
+
+  action:
+    # Publish current room temperature to HeishaMon
+    - service: mqtt.publish
+      data:
+        topic: "panasonic_heat_pump/opentherm/read/roomTemp"
+        retain: true
+        payload: >
+          {{ states('sensor.your_room_temperature_sensor') | float(0) | round(1) }}
+        # <-- REPLACE sensor.your_room_temperature_sensor above
+
+    # Publish room temperature setpoint to HeishaMon
+    - service: mqtt.publish
+      data:
+        topic: "panasonic_heat_pump/opentherm/read/roomTempSet"
+        retain: true
+        payload: >
+          {{ states('input_number.room_setpoint') | float(20) | round(1) }}
+        # <-- REPLACE input_number.room_setpoint with your setpoint entity
+        #     Could also be: climate.your_thermostat → attribute: temperature
+
+
+# ============================================================
+# OPTIONAL: Create an input_number for room setpoint
+# Add this to configuration.yaml if you don't already have one.
+#
+# input_number:
+#   room_setpoint:
+#     name: "Room Temperature Setpoint"
+#     min: 15
+#     max: 25
+#     step: 0.5
+#     unit_of_measurement: "°C"
+#     icon: mdi:home-thermometer-outline
+# ============================================================

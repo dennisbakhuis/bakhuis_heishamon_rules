@@ -36,3 +36,6 @@ heishamon_rules/heishamon_rules_minified.txt
 
 # AI
 .claude/
+
+# Local
+local/

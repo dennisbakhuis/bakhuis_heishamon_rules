@@ -1,9 +1,7 @@
 # bakhuis_heishamon_rules
-
 HeishaMon rules for the Bakhuis Panasonic Aquarea heat pump — Weather Dependent Control (WDC) with minimum-frequency operation and pump speed management.
 
 ## What the rules do
-
 The rules run directly on the [HeishaMon](https://github.com/heishamon/HeishaMon) device (ESP8266) and implement four control loops:
 
 | Timer | Interval | Function |
@@ -14,7 +12,6 @@ The rules run directly on the [HeishaMon](https://github.com/heishamon/HeishaMon
 | 4 | 15 s | Pump speed control — adjusts pump duty based on compressor state |
 
 ## Repository layout
-
 ```
 src/
 ├── heishamon_rules/
@@ -29,7 +26,6 @@ pyproject.toml                          ← consolidated uv project
 ```
 
 ## Deploying rules to HeishaMon
-
 The device has a 10 KB limit, so the commented source must be minified before uploading.
 
 **Prerequisites:** Python + [uv](https://github.com/astral-sh/uv)
@@ -48,7 +44,6 @@ make comments
 The minified output is written to `src/heishamon_rules/heishamon_rules_minified.txt`. Upload that file via the HeishaMon web interface under **Rules**.
 
 ## Simulator & tests
-
 A Python simulator lets you run and test the control logic without real hardware. It interprets the rules file directly so tests always reflect the deployed code.
 
 ### Setup
@@ -66,7 +61,6 @@ uv run pytest -v
 All 37 tests should pass across 7 scenarios (cold day, mild day, defrost skip, pump duty, boot state, weather curve accuracy).
 
 ### Run a quick simulation in Python
-
 ```python
 from simulator import HeishaMonSimulator
 
@@ -94,7 +88,6 @@ print("Pump duty:", sim.get_sensor("SetMaxPumpDuty"))
 For more details on the simulator internals and test scenarios, see [`src/simulator/`](src/simulator/).
 
 ## Heating curve parameters
-
 | Parameter | Value | Meaning |
 |-----------|-------|---------|
 | `curveOutdoorLow` | −10 °C | Coldest expected outdoor temp |

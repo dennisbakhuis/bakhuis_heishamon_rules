@@ -59,6 +59,13 @@ on System#Boot then
   #dynamicShift = 0;            -- Current shift applied to base setpoint (-3 to +1°C)
   #minFreqMargin = 3;           -- Keep setpoint this many °C above inlet (default: 3°C)
 
+  --[[ RTC (Room Temperature Control) configuration
+   * Adjusts the water setpoint based on room temperature feedback from
+   * Home Assistant via MQTT OpenTherm interface.
+   ]]
+  #rtcEnabled = 1;              -- Enable room temperature control (1=on, 0=off)
+  #rtcShift = 0;                -- Current RTC offset applied to setpoint
+
   --[[ Pump Speed Control
    * Adjust pump duty based on compressor state
    * Higher flow when heating, lower when circulating
@@ -153,6 +160,72 @@ on calculateHeatingCurve($outdoorTemp) then
   #calculatedSetpoint = max(#minSetpoint, min(#maxSetpoint, $calculatedSetpoint));
 end
 
+on calculateRTC() then
+  --[[*************************************************************************
+   * ROOM TEMPERATURE CONTROL (RTC) FUNCTION
+   *
+   * Adjusts the water setpoint based on room temperature feedback from Home
+   * Assistant via MQTT.
+   *
+   * HA publishes values to the HeishaMon OpenTherm MQTT interface:
+   *   panasonic_heat_pump/opentherm/read/roomTemp    → actual room temperature
+   *   panasonic_heat_pump/opentherm/read/roomTempSet → desired room setpoint
+   *
+   * These map to rule variables ?roomTemp and ?roomTempSet.
+   * OpenTherm must be enabled in HeishaMon settings (no physical thermostat needed).
+   *
+   * The correction is a stepped offset applied on top of the weather curve and
+   * min-frequency shift:
+   *   finalSetpoint = calculatedSetpoint + dynamicShift + rtcShift
+   *
+   * Correction table (delta = roomTemp - roomTempSet):
+   *   delta > +1.5°C  → -3°C  (room too warm: aggressively reduce)
+   *   +1.0 to +1.5°C  → -2°C
+   *   +0.5 to +1.0°C  → -1°C
+   *   -0.2 to +0.5°C  →  0°C  (dead band: no correction)
+   *   -0.4 to -0.2°C  → +1°C
+   *   -0.6 to -0.4°C  → +2°C
+   *   -2.0 to -0.6°C  → +3°C
+   *   < -2.0°C        → +4°C  (room very cold: maximum heat boost)
+   *************************************************************************]]
+
+  if #rtcEnabled == 1 && isset(?roomTemp) && isset(?roomTempSet) then
+    $delta = ?roomTemp - ?roomTempSet;
+
+    if $delta > 1.5 then
+      #rtcShift = -3;
+    elseif $delta > 1.0 then
+      #rtcShift = -2;
+    elseif $delta > 0.5 then
+      #rtcShift = -1;
+    elseif $delta >= -0.2 then
+      #rtcShift = 0;
+    elseif $delta >= -0.4 then
+      #rtcShift = 1;
+    elseif $delta >= -0.6 then
+      #rtcShift = 2;
+    elseif $delta >= -2.0 then
+      #rtcShift = 3;
+    else
+      #rtcShift = 4;
+    end
+  else
+    #rtcShift = 0;
+  end
+end
+
+on ?roomTemp then
+  --[[*************************************************************************
+   * OPENTHERM ROOM TEMPERATURE EVENT
+   *
+   * Triggered immediately when Home Assistant publishes a new room temperature
+   * via the HeishaMon OpenTherm MQTT interface. This ensures the RTC shift is
+   * recalculated as soon as new data arrives, without waiting for the next
+   * timer cycle.
+   *************************************************************************]]
+  calculateRTC();
+end
+
 on timer=2 then
   --[[*************************************************************************
    * TEMPERATURE SMOOTHING TIMER
@@ -216,8 +289,11 @@ on timer=3 then
     -- Safety: Limit shift range to prevent extreme adjustments
     #dynamicShift = max(-3, min(1, #dynamicShift));
 
-    -- Apply the adjusted setpoint (base + shift)
-    $finalSetpoint = #calculatedSetpoint + #dynamicShift;
+    -- Recalculate RTC shift based on latest room temperature data
+    calculateRTC();
+
+    -- Apply the adjusted setpoint (base + min-freq shift + RTC shift)
+    $finalSetpoint = #calculatedSetpoint + #dynamicShift + #rtcShift;
     $finalSetpoint = max(#minSetpoint, min(#maxSetpoint, $finalSetpoint));
 
     -- Apply with hysteresis to prevent excessive updates
@@ -295,6 +371,9 @@ on timer=1 then
     -- Calculate the optimal BASE setpoint using the heating curve
     calculateHeatingCurve($outdoorTemp);
 
+    -- Calculate the RTC shift from room temperature feedback
+    calculateRTC();
+
     --[[*************************************************************************
      * APPLY SETPOINT DIRECTLY (only if min-freq control is disabled)
      *
@@ -311,9 +390,11 @@ on timer=1 then
       end
 
       if $setpointDelta > #hysteresis then
-        -- Setpoint has changed significantly - apply it
-        @SetZ1HeatRequestTemperature = #calculatedSetpoint;
-        #lastSetpoint = #calculatedSetpoint;
+        -- Setpoint has changed significantly - apply it (base + RTC shift)
+        $finalSetpoint = #calculatedSetpoint + #dynamicShift + #rtcShift;
+        $finalSetpoint = max(#minSetpoint, min(#maxSetpoint, $finalSetpoint));
+        @SetZ1HeatRequestTemperature = $finalSetpoint;
+        #lastSetpoint = $finalSetpoint;
       end
     end
   end

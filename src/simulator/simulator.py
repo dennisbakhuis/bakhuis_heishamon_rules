@@ -55,6 +55,20 @@ class HeishaMonSimulator:
         """Fire timer=N."""
         self._interp.fire_timer(n)
 
+    def fire_event(self, event: str) -> None:
+        """Fire an arbitrary named event (e.g. '?roomTemp')."""
+        self._interp._fire(event)
+
+    def set_opentherm(self, **kwargs: Any) -> None:
+        """
+        Set ?opentherm variable values by name (without ? prefix).
+
+        Example::
+            sim.set_opentherm(roomTemp=21.5, roomTempSet=21.0)
+        """
+        for name, value in kwargs.items():
+            self._interp.set_sensor(f"?{name}", value)
+
     def call_function(self, name: str, *args: Any) -> None:
         """Call a named function with arguments."""
         self._interp.call_function(name, list(args))

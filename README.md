@@ -58,7 +58,7 @@ uv sync
 uv run pytest -v
 ```
 
-All 37 tests should pass across 7 scenarios (cold day, mild day, defrost skip, pump duty, boot state, weather curve accuracy).
+All tests should pass across 10 scenarios (cold day, mild day, defrost skip, pump duty, boot state, weather curve accuracy, RTC corrections, RTC disabled, RTC missing sensor).
 
 ### Run a quick simulation in Python
 ```python
@@ -145,3 +145,73 @@ The previous implementation used a single line from −10 °C → 40 °C to 18 �
 | `minFreqMargin` | 3 °C | Keep setpoint this many °C above inlet |
 | `pumpDutyHigh` | 140 | Pump duty when compressor is running |
 | `pumpDutyLow` | 93 | Pump duty when compressor is off |
+
+## Room Temperature Control (RTC)
+
+### What it does
+
+RTC adds a **stepped offset** on top of the weather-compensation curve (WAR) and min-frequency shift, based on actual room temperature feedback from Home Assistant. This closes the loop between what the heat pump delivers and what the room actually needs:
+
+```
+finalSetpoint = calculatedSetpoint (WAR) + dynamicShift (min-freq) + rtcShift (RTC)
+```
+
+If the room is already too warm, the water setpoint is lowered. If the room is cold, it is raised. The dead band (±0.2 °C) prevents hunting.
+
+### Correction table
+
+| Room delta (actual − setpoint) | Water temp correction |
+|-------------------------------|----------------------|
+| delta > +1.5 °C               | −3 °C  (room too warm, reduce aggressively) |
+| +1.0 °C < delta ≤ +1.5 °C    | −2 °C |
+| +0.5 °C < delta ≤ +1.0 °C    | −1 °C |
+| −0.2 °C ≤ delta ≤ +0.5 °C    |  0 °C  (dead band — no correction) |
+| −0.4 °C ≤ delta < −0.2 °C    | +1 °C |
+| −0.6 °C ≤ delta < −0.4 °C    | +2 °C |
+| −2.0 °C ≤ delta < −0.6 °C    | +3 °C |
+| delta < −2.0 °C               | +4 °C  (room very cold, maximum boost) |
+
+### Enabling / disabling
+
+Set `#rtcEnabled` in the rules boot section:
+
+```
+#rtcEnabled = 1;   -- 1 = on, 0 = off (default: 1)
+```
+
+Setting to `0` always forces `#rtcShift = 0` without redeploying or restarting. Useful for testing or if the room sensor fails.
+
+### Requirements
+
+- **OpenTherm must be enabled** in HeishaMon Settings → OpenTherm. No physical OpenTherm thermostat is required; HeishaMon simply listens on the MQTT topics.
+- Room temperature and setpoint must be published to the correct MQTT topics (see below).
+
+### Home Assistant configuration
+
+HA must publish room temperature and the desired setpoint to two MQTT topics. Use a state-change automation:
+
+```yaml
+automation:
+  - alias: "Sync room temperature to HeishaMon"
+    trigger:
+      - platform: state
+        entity_id: sensor.room_temperature
+    action:
+      - service: mqtt.publish
+        data:
+          topic: panasonic_heat_pump/opentherm/read/roomTemp
+          payload: "{{ states('sensor.room_temperature') }}"
+      - service: mqtt.publish
+        data:
+          topic: panasonic_heat_pump/opentherm/read/roomTempSet
+          payload: "{{ states('input_number.room_setpoint') }}"
+```
+
+**MQTT topics:**
+
+| Topic | Content | Direction |
+|-------|---------|-----------|
+| `panasonic_heat_pump/opentherm/read/roomTemp` | Actual room temperature (float °C) | HA → HeishaMon |
+| `panasonic_heat_pump/opentherm/read/roomTempSet` | Desired room setpoint (float °C) | HA → HeishaMon |
+
+HeishaMon's `mqttOTCallback` receives these, stores them in memory, and fires the `?roomTemp` rules event — which immediately recalculates `#rtcShift`. The shift is also recalculated each time timer=3 (min-freq control, every 30 s) runs.

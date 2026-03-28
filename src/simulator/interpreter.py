@@ -36,6 +36,7 @@ _VAR_RE = re.compile(
     r"(#[A-Za-z_][A-Za-z0-9_]*"
     r"|\$[A-Za-z_][A-Za-z0-9_]*"
     r"|@[A-Za-z_][A-Za-z0-9_]*"
+    r"|\?[A-Za-z_][A-Za-z0-9_]*"
     r"|%[A-Za-z_][A-Za-z0-9_]*)"
 )
 
@@ -381,7 +382,13 @@ class HeishaMonInterpreter:
                 self._blocks[fname] = body  # store under bare name
                 self._func_params[fname] = param
             else:
-                self._blocks[key] = body
+                # Check if this is a no-argument function call: name()
+                m0 = re.match(r"^([A-Za-z_][A-Za-z0-9_]*)\(\s*\)$", key)
+                if m0:
+                    fname = m0.group(1)
+                    self._blocks[fname] = body  # store under bare name
+                else:
+                    self._blocks[key] = body
 
     # ------------------------------------------------------------------
     # Event firing
@@ -439,6 +446,8 @@ class HeishaMonInterpreter:
             return self.globals_.get(name)
         if name.startswith("@"):
             return self.hpparams_.get(name)
+        if name.startswith("?"):
+            return self.hpparams_.get(name)
         return None
 
     def _set(self, name: str, value: Any, extra_locals: dict) -> None:
@@ -447,6 +456,8 @@ class HeishaMonInterpreter:
         elif name.startswith("#"):
             self.globals_[name] = value
         elif name.startswith("@"):
+            self.hpparams_[name] = value
+        elif name.startswith("?"):
             self.hpparams_[name] = value
 
     # ------------------------------------------------------------------
@@ -496,7 +507,10 @@ class HeishaMonInterpreter:
     # ------------------------------------------------------------------
 
     def set_sensor(self, name: str, value: Any) -> None:
-        key = name if name.startswith("@") else f"@{name}"
+        if name.startswith("@") or name.startswith("?"):
+            key = name
+        else:
+            key = f"@{name}"
         self.hpparams_[key] = value
 
     def set_global(self, name: str, value: Any) -> None:
@@ -504,7 +518,10 @@ class HeishaMonInterpreter:
         self.globals_[key] = value
 
     def get_sensor(self, name: str) -> Any:
-        key = name if name.startswith("@") else f"@{name}"
+        if name.startswith("@") or name.startswith("?"):
+            key = name
+        else:
+            key = f"@{name}"
         return self.hpparams_.get(key)
 
     def get_global(self, name: str) -> Any:

@@ -9,6 +9,9 @@ Covers:
   E - Compressor on:  pump duty → pumpDutyHigh
   F - Boot initialization: all globals set correctly
   G - Weather curve accuracy: spot-check interpolated setpoints
+  H - RTC corrections: parametrised delta → expected rtcShift
+  I - RTC disabled: rtcShift stays 0 regardless of delta
+  J - RTC missing sensor: rtcShift stays 0 when ?roomTemp not set
 """
 
 from __future__ import annotations
@@ -299,6 +302,12 @@ class TestScenarioF_BootInit:
     def test_last_pump_duty_zero(self):
         assert self.sim.get_global("lastPumpDuty") == 0
 
+    def test_rtc_enabled(self):
+        assert self.sim.get_global("rtcEnabled") == 1
+
+    def test_rtc_shift_zero(self):
+        assert self.sim.get_global("rtcShift") == 0
+
     def test_timers_scheduled(self):
         # All four timers should have been scheduled
         timers = self.sim._interp.timers_
@@ -364,3 +373,113 @@ class TestScenarioG_WeatherCurveAccuracy:
         self.sim.call_function("calculateHeatingCurve", outdoor)
         result = self.sim.get_global("calculatedSetpoint")
         assert result == expected, f"{desc}: expected {expected}, got {result}"
+
+
+# ---------------------------------------------------------------------------
+# Scenario H — RTC corrections (parametrised)
+# ---------------------------------------------------------------------------
+
+class TestScenarioH_RTCCorrections:
+    """
+    Verify calculateRTC() produces the correct #rtcShift for each delta band.
+
+    Correction table (delta = ?roomTemp - ?roomTempSet):
+      delta > +1.5°C  → -3
+      +1.0 to +1.5°C  → -2
+      +0.5 to +1.0°C  → -1
+      -0.2 to +0.5°C  →  0  (dead band)
+      -0.4 to -0.2°C  → +1
+      -0.6 to -0.4°C  → +2
+      -2.0 to -0.6°C  → +3
+      < -2.0°C        → +4
+    """
+
+    CASES = [
+        (+2.0, -3, "delta=+2.0: well above +1.5 → -3"),
+        (+1.2, -2, "delta=+1.2: in (1.0, 1.5] → -2"),
+        (+0.7, -1, "delta=+0.7: in (0.5, 1.0] → -1"),
+        (+0.3,  0, "delta=+0.3: in dead band [-0.2, 0.5] → 0"),
+        ( 0.0,  0, "delta=0.0: in dead band → 0"),
+        (-0.3, +1, "delta=-0.3: in [-0.4, -0.2) → +1"),
+        (-0.5, +2, "delta=-0.5: in [-0.6, -0.4) → +2"),
+        (-1.0, +3, "delta=-1.0: in [-2.0, -0.6) → +3"),
+        (-3.0, +4, "delta=-3.0: below -2.0 → +4"),
+    ]
+
+    @pytest.fixture(autouse=True)
+    def setup(self):
+        self.sim = HeishaMonSimulator()
+        self.sim.set_sensors(Outside_Temp=10.0)
+        self.sim.boot()
+        # Ensure RTC is enabled
+        self.sim.set_globals(rtcEnabled=1)
+
+    @pytest.mark.parametrize("delta,expected_shift,desc", CASES)
+    def test_rtc_shift(self, delta: float, expected_shift: int, desc: str):
+        room_setpoint = 21.0
+        room_temp = room_setpoint + delta
+        self.sim.set_opentherm(roomTemp=room_temp, roomTempSet=room_setpoint)
+        self.sim.call_function("calculateRTC")
+        result = self.sim.get_global("rtcShift")
+        assert result == expected_shift, f"{desc}: expected {expected_shift}, got {result}"
+
+
+# ---------------------------------------------------------------------------
+# Scenario I — RTC disabled
+# ---------------------------------------------------------------------------
+
+class TestScenarioI_RTCDisabled:
+    """
+    When #rtcEnabled = 0, calculateRTC() should always set #rtcShift = 0
+    regardless of the room temperature delta.
+    """
+
+    def setup_method(self):
+        self.sim = HeishaMonSimulator()
+        self.sim.set_sensors(Outside_Temp=10.0)
+        self.sim.boot()
+        # Disable RTC
+        self.sim.set_globals(rtcEnabled=0)
+        # Set room temperatures with a large delta that would normally give -3
+        self.sim.set_opentherm(roomTemp=24.0, roomTempSet=21.0)  # delta = +3.0
+
+    def test_rtc_shift_zero_when_disabled(self):
+        self.sim.call_function("calculateRTC")
+        shift = self.sim.get_global("rtcShift")
+        assert shift == 0, f"Expected rtcShift=0 when disabled, got {shift}"
+
+    def test_rtc_shift_stays_zero_after_multiple_calls(self):
+        """RTC shift remains 0 across multiple calls when disabled."""
+        for _ in range(3):
+            self.sim.call_function("calculateRTC")
+        shift = self.sim.get_global("rtcShift")
+        assert shift == 0, f"Expected rtcShift=0 after multiple calls, got {shift}"
+
+
+# ---------------------------------------------------------------------------
+# Scenario J — RTC with missing sensor
+# ---------------------------------------------------------------------------
+
+class TestScenarioJ_RTCMissingSensor:
+    """
+    When ?roomTemp is not set (sensor not available), calculateRTC() should
+    set #rtcShift = 0 (safe fallback, no adjustment).
+    """
+
+    def setup_method(self):
+        self.sim = HeishaMonSimulator()
+        self.sim.set_sensors(Outside_Temp=10.0)
+        self.sim.boot()
+        # RTC enabled, but DO NOT set roomTemp or roomTempSet
+
+    def test_rtc_shift_zero_when_roomtemp_missing(self):
+        self.sim.call_function("calculateRTC")
+        shift = self.sim.get_global("rtcShift")
+        assert shift == 0, f"Expected rtcShift=0 when sensor missing, got {shift}"
+
+    def test_rtc_shift_zero_when_only_roomtempset_missing(self):
+        """Only roomTemp set but roomTempSet missing → shift stays 0."""
+        self.sim.set_opentherm(roomTemp=22.0)
+        self.sim.call_function("calculateRTC")
+        shift = self.sim.get_global("rtcShift")
+        assert shift == 0, f"Expected rtcShift=0 when roomTempSet missing, got {shift}"

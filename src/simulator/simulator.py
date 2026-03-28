@@ -14,7 +14,7 @@ from .interpreter import HeishaMonInterpreter
 
 # Default path to the rules file relative to this package
 _DEFAULT_RULES = (
-    Path(__file__).parent.parent.parent.parent
+    Path(__file__).parent.parent
     / "heishamon_rules"
     / "heishamon_rules_commented.txt"
 )

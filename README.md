@@ -58,7 +58,7 @@ uv sync
 uv run pytest -v
 ```
 
-All tests should pass across 10 scenarios (cold day, mild day, defrost skip, pump duty, boot state, weather curve accuracy, RTC corrections, RTC disabled, RTC missing sensor).
+All tests should pass across 14 scenarios (cold day, mild day, defrost skip, pump duty, boot state, weather curve accuracy, RTC corrections, RTC disabled, RTC missing sensor, soft-start ramp, soft-start disabled, soft-start warm outdoor, min-shift logic).
 
 ### Run a quick simulation in Python
 ```python
@@ -215,3 +215,84 @@ automation:
 | `panasonic_heat_pump/opentherm/read/roomTempSet` | Desired room setpoint (float °C) | HA → HeishaMon |
 
 HeishaMon's `mqttOTCallback` receives these, stores them in memory, and fires the `?roomTemp` rules event — which immediately recalculates `#rtcShift`. The shift is also recalculated each time timer=3 (min-freq control, every 30 s) runs.
+
+## Soft-Start Control
+
+### What problem it solves
+
+At startup in mild weather (outdoor 0–8 °C), the compressor must produce a minimum amount of heat even when the house needs very little. Without compensation, the setpoint is reached quickly, the HP turns off, and a short time later the cycle repeats — wasted energy, compressor wear, and noise.
+
+**Soft-start** keeps the setpoint *below* the weather curve for the first ~13 minutes after compressor startup, giving the HP a moving target to chase while it warms up at minimum frequency. Once the ramp completes, the setpoint rises back to the normal curve value.
+
+### Square-root ramp shape
+
+The shift follows a square-root curve from `−maxShift` back to `0`:
+
+```
+softStartShift = floor(maxShift * (sqrt(compRunSec / duration) - 1))
+```
+
+| Time (s) | Shape |
+|---------|-------|
+| t = 0 | shift = −maxShift (e.g. −5 °C) — immediate full downshift |
+| t < duration | fast initial rise, then decelerating as compressor warms up |
+| t = duration | shift = 0 — ramp complete, back to normal curve |
+
+**ASCII illustration** (maxShift = 5, duration = 780 s):
+
+```
+ Shift (°C)
+  0 │                                         ─────────
+    │                               ─────────
+ -1 │                       ────────
+    │              ─────────
+ -3 │      ────────
+    │  ─────
+ -5 │──
+    └──┬──────┬──────┬──────┬──────┬──── time (s)
+       0    100    200    400    600   780
+```
+
+### Interaction with min-freq shift
+
+Both soft-start and min-freq can shift the setpoint. Rather than stacking, the **most negative** shift wins:
+
+```
+effectiveShift = min(dynamicShift, softStartShift)
+finalSetpoint  = calculatedSetpoint + effectiveShift + rtcShift
+```
+
+This means whichever control is more aggressive (wants a lower setpoint) takes priority.
+
+### Tuning parameters
+
+| Parameter | Default | Meaning | Tuning guidance |
+|-----------|---------|---------|-----------------|
+| `softStartDuration` | 780 s | Ramp duration | Match your HP's warm-up time. Shorter (e.g. 480 s) for a small/fast HP; longer (e.g. 1200 s) if cycling persists |
+| `softStartMaxShift` | 5 °C | Maximum downshift at startup | Start at 5 °C. Increase if HP still short-cycles; decrease if you see overshoot |
+| `softStartOutdoorMax` | 8 °C | Only apply when outdoor ≤ this | Above ~8 °C, heat loss is high enough that the HP won't short-cycle without help |
+
+### Enabling / disabling
+
+Set `#enableSoftStart` in the rules boot section:
+
+```
+#enableSoftStart = 1;   -- 1 = on, 0 = off (default: 1)
+```
+
+Setting to `0` bypasses all soft-start logic (`#softStartShift` stays 0) without redeploying.
+
+## Feature Flags & Configuration Reference
+
+| Flag / Parameter | Default | Feature | Description |
+|-----------------|---------|---------|-------------|
+| `enableMinFreq` | 1 | Min-freq | Enable minimum-frequency setpoint shift (timer=3) |
+| `enableRTC` | 1 | RTC | Enable room temperature control via HA MQTT |
+| `enableSoftStart` | 1 | Soft-start | Enable soft-start ramp on compressor startup |
+| `enablePumpControl` | 1 | Pump | Enable pump speed control (timer=4) |
+| `minFreqMargin` | 3 °C | Min-freq | Keep setpoint this many °C above inlet temp |
+| `softStartDuration` | 780 s | Soft-start | Duration of the ramp from −maxShift to 0 |
+| `softStartMaxShift` | 5 °C | Soft-start | Maximum setpoint reduction at compressor startup |
+| `softStartOutdoorMax` | 8 °C | Soft-start | Only active when outdoor ≤ this temperature |
+| `pumpDutyHigh` | 140 | Pump | Pump duty when compressor is running |
+| `pumpDutyLow` | 93 | Pump | Pump duty when compressor is off |

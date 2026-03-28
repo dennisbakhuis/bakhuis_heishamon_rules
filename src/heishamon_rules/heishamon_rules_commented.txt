@@ -58,6 +58,21 @@ on System#Boot then
   #enableRTC       = 1;   -- Room temperature control via HA MQTT (timer=3 + ?roomTemp event)
   #enableSoftStart = 1;   -- Soft-start ramp on compressor startup (timer=5)
 
+  --[[ Soft-start configuration
+   * Controls the square-root ramp applied to the setpoint when the compressor starts.
+   * Reduces the setpoint by up to softStartMaxShift degrees at t=0, ramping back to 0
+   * over softStartDuration seconds. Only active at low outdoor temperatures where
+   * heat loss is sufficient to absorb the reduced output.
+   ]]
+  #softStartDuration   = 780;  -- Ramp duration in seconds (780 = 13 min). Tune to your HP: faster startup = shorter duration
+  #softStartMaxShift   = 5;    -- Maximum setpoint reduction at startup (°C). HP setpoint starts this many degrees below curve
+  #softStartOutdoorMax = 8;    -- Only apply soft-start when outdoor temp ≤ this (°C). Above this, heat loss exceeds HP minimum output
+
+  --[[ Soft-start state ]]
+  #compState      = 0;   -- Compressor state (0=off, 1=running)
+  #compRunSec     = 0;   -- Seconds compressor has been running in current cycle
+  #softStartShift = 0;   -- Current soft-start setpoint offset (negative during ramp, 0 otherwise)
+
   --[[ Minimum Frequency Control
    * Dynamic setpoint adjustment to keep HP running at minimum frequency
    * This improves efficiency and reduces cycling
@@ -297,8 +312,9 @@ on timer=3 then
     -- Recalculate RTC shift based on latest room temperature data
     calculateRTC();
 
-    -- Apply the adjusted setpoint (base + min-freq shift + RTC shift)
-    $finalSetpoint = #calculatedSetpoint + #dynamicShift + #rtcShift;
+    -- Apply the adjusted setpoint (most negative of min-freq or soft-start shift wins)
+    $effectiveShift = min(#dynamicShift, #softStartShift);
+    $finalSetpoint = #calculatedSetpoint + $effectiveShift + #rtcShift;
     $finalSetpoint = max(#minSetpoint, min(#maxSetpoint, $finalSetpoint));
 
     -- Apply with hysteresis to prevent excessive updates
@@ -395,12 +411,98 @@ on timer=1 then
       end
 
       if $setpointDelta > #hysteresis then
-        -- Setpoint has changed significantly - apply it (base + RTC shift)
-        $finalSetpoint = #calculatedSetpoint + #dynamicShift + #rtcShift;
+        -- Setpoint has changed significantly - apply it (base + effective shift + RTC shift)
+        $effectiveShift = min(#dynamicShift, #softStartShift);
+        $finalSetpoint = #calculatedSetpoint + $effectiveShift + #rtcShift;
         $finalSetpoint = max(#minSetpoint, min(#maxSetpoint, $finalSetpoint));
         @SetZ1HeatRequestTemperature = $finalSetpoint;
         #lastSetpoint = $finalSetpoint;
       end
     end
+  end
+end
+
+on calculateSoftStart() then
+  --[[*************************************************************************
+   * SOFT-START CALCULATION FUNCTION
+   *
+   * Recalculates #softStartShift based on current #compRunSec using a
+   * square-root ramp curve:
+   *
+   *   shift = floor(maxShift * (sqrt(compRunSec / duration) - 1))
+   *
+   *   At t=0:        shift = -maxShift  (e.g. -5°C)
+   *   At t=duration: shift =  0         (ramp complete)
+   *   Shape: fast initial rise, then decelerating (concave down)
+   *
+   * Only active when:
+   *   - #enableSoftStart == 1
+   *   - #OutsideTemp <= #softStartOutdoorMax
+   *   - #compRunSec < #softStartDuration
+   *
+   * Called by timer=5 each tick while compressor is running.
+   *************************************************************************]]
+  if #enableSoftStart == 1 && #OutsideTemp <= #softStartOutdoorMax then
+    if #compRunSec < #softStartDuration then
+      $ramp = #softStartMaxShift * (sqrt(#compRunSec / #softStartDuration) - 1);
+      #softStartShift = floor($ramp);
+    else
+      #softStartShift = 0;
+    end
+  else
+    #softStartShift = 0;
+  end
+end
+
+on @Compressor_Freq then
+  --[[*************************************************************************
+   * COMPRESSOR STATE TRACKING EVENT
+   *
+   * Triggered whenever @Compressor_Freq changes. Detects compressor start/stop
+   * transitions to manage soft-start timing.
+   *
+   * On start (freq > 10 && was off):
+   *   - Reset run-seconds counter
+   *   - Pre-set the full downshift immediately (no delay before first timer tick)
+   *   - Start timer=5 to begin the run-seconds counter
+   *
+   * On stop (freq <= 10 && was running):
+   *   - Clear run-seconds counter
+   *   - Reset soft-start shift to 0
+   *
+   * Threshold of 10 Hz avoids false triggers from noise at very low speed.
+   *************************************************************************]]
+  if @Compressor_Freq > 10 && #compState == 0 then
+    -- Compressor just started
+    #compState      = 1;
+    #compRunSec     = 0;
+    #softStartShift = max(-(#softStartMaxShift), -5);  -- pre-set full downshift immediately
+    setTimer(5, 5);  -- start the run-seconds counter
+  elseif @Compressor_Freq <= 10 && #compState == 1 then
+    -- Compressor just stopped
+    #compState      = 0;
+    #compRunSec     = 0;
+    #softStartShift = 0;
+  end
+end
+
+on timer=5 then
+  --[[*************************************************************************
+   * COMPRESSOR RUN-SECONDS COUNTER
+   *
+   * Fires every 5 seconds while the compressor is running. Increments
+   * #compRunSec and recalculates #softStartShift via calculateSoftStart().
+   * Stops automatically when the compressor turns off (#compState becomes 0).
+   *
+   * The square-root curve provides a non-linear ramp:
+   *   - Fast initial rise (first few minutes)
+   *   - Decelerating approach to 0 as compressor warms up
+   *
+   * Once #compRunSec >= #softStartDuration the shift is 0 and has no effect.
+   *************************************************************************]]
+  if #compState == 1 then
+    setTimer(5, 5);
+    #compRunSec = #compRunSec + 5;
+    calculateSoftStart();
   end
 end

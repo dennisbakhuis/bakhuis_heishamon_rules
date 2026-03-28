@@ -486,6 +486,7 @@ class HeishaMonInterpreter:
             "ceil": math.ceil,
             "floor": math.floor,
             "round": round,
+            "sqrt": math.sqrt,
             "print": lambda v: self._print_log.append(str(v)),
             "setTimer": lambda t, i: self.timers_.update({int(t): int(i)}),
             "True": True,

@@ -37,21 +37,21 @@ def fresh_sim() -> HeishaMonSimulator:
 
 class TestScenarioA_ColdDay:
     """
-    Outdoor=-5°C (cold), inlet=27°C, outlet=37°C (near setpoint), compressor running.
+    Outdoor=-5°C (cold), inlet=27°C, outlet=38°C (near setpoint), compressor running.
 
-    At -5°C the weather curve gives:
-      tempRange = 18 - (-10) = 28
-      setpointRange = 40 - 27 = 13
-      tempOffset = 18 - (-5) = 23
-      setpoint = ceil(27 + 23 * 13 / 28) = ceil(27 + 10.68) = ceil(37.68) = 38
+    At -5°C the weather curve gives (new 3-point piecewise, segment 1: -7°C to 5°C):
+      tempRange     = 5 - (-7) = 12
+      setpointRange = 40 - 33  = 7   (TargetLow - TargetMid)
+      tempOffset    = 5 - (-5) = 10  (curveOutdoorMid - outdoorTemp)
+      setpoint = ceil(33 + 10 * 7 / 12) = ceil(33 + 5.833) = ceil(38.833) = 39
 
-    outletDelta = 37 - 38 = -1  → Case 1 (outlet approaching setpoint)
-    targetShift = inlet(27) + margin(3) - setpoint(38) = -8
-    dynamicShift = max(-3, -8) = -3 (clamped)
+    outletDelta = 38 - 39 = -1  → Case 1 (outlet approaching setpoint)
+    targetShift = inlet(27) + margin(3) - setpoint(39) = -9
+    dynamicShift = max(-3, -9) = -3 (clamped)
 
-    With outlet=33 instead (delta=-5) we'd hit Case 2 (well below setpoint) →
+    With outlet=33 instead (delta=-6) we'd hit Case 2 (well below setpoint) →
     shift resets to 0, which is also correct but doesn't test the lowering path.
-    We use outlet=37 to specifically test Case 1.
+    We use outlet=38 to specifically test Case 1.
     """
 
     def setup_method(self):
@@ -59,7 +59,7 @@ class TestScenarioA_ColdDay:
         self.sim.set_sensors(
             Outside_Temp=-5.0,
             Main_Inlet_Temp=27.0,
-            Main_Outlet_Temp=37.0,  # near setpoint=38, triggers Case 1
+            Main_Outlet_Temp=38.0,  # near setpoint=39, triggers Case 1
             Compressor_Freq=30,
             Defrosting_State=0,
         )
@@ -79,12 +79,12 @@ class TestScenarioA_ColdDay:
         shift = self.sim.get_global("dynamicShift")
         assert shift == -3, f"Expected shift=-3 (clamped) but got {shift}"
 
-    def test_calculated_setpoint_is_38(self):
+    def test_calculated_setpoint_is_39(self):
         sp = self.sim.get_global("calculatedSetpoint")
-        assert sp == 38, f"Expected calculatedSetpoint=38 for outdoor=-5°C, got {sp}"
+        assert sp == 39, f"Expected calculatedSetpoint=39 for outdoor=-5°C, got {sp}"
 
     def test_final_setpoint_applied_is_reduced(self):
-        # finalSetpoint = calculatedSetpoint + dynamicShift = 38 + (-3) = 35
+        # finalSetpoint = calculatedSetpoint + dynamicShift = 39 + (-3) = 36
         last = self.sim.get_global("lastSetpoint")
         assert last is not None
         assert last < self.sim.get_global("calculatedSetpoint"), (
@@ -100,9 +100,11 @@ class TestScenarioB_MildDay:
     """
     Outdoor=12°C, inlet=27°C, outlet=30°C, compressor running.
 
-    At 12°C:
-      tempOffset = 18 - 12 = 6
-      setpoint = ceil(27 + 6 * 13 / 28) = ceil(27 + 2.79) = ceil(29.79) = 30
+    At 12°C the weather curve gives (new 3-point piecewise, segment 2: 5°C to 15°C):
+      tempRange     = 15 - 5   = 10
+      setpointRange = 33 - 28  = 5   (TargetMid - TargetHigh)
+      tempOffset    = 15 - 12  = 3   (curveOutdoorHigh - outdoorTemp)
+      setpoint = ceil(28 + 3 * 5 / 10) = ceil(28 + 1.5) = ceil(29.5) = 30
 
     outletDelta = 30 - 30 = 0  → Case 1 (outlet approaching setpoint)
     targetShift = inlet(27) + margin(3) - setpoint(30) = 0
@@ -238,19 +240,25 @@ class TestScenarioF_BootInit:
         self.sim.boot()
 
     def test_curve_outdoor_low(self):
-        assert self.sim.get_global("curveOutdoorLow") == -10
+        assert self.sim.get_global("curveOutdoorLow") == -7
+
+    def test_curve_outdoor_mid(self):
+        assert self.sim.get_global("curveOutdoorMid") == 5
 
     def test_curve_outdoor_high(self):
-        assert self.sim.get_global("curveOutdoorHigh") == 18
+        assert self.sim.get_global("curveOutdoorHigh") == 15
 
     def test_curve_target_low(self):
         assert self.sim.get_global("curveTargetLow") == 40
 
+    def test_curve_target_mid(self):
+        assert self.sim.get_global("curveTargetMid") == 33
+
     def test_curve_target_high(self):
-        assert self.sim.get_global("curveTargetHigh") == 27
+        assert self.sim.get_global("curveTargetHigh") == 28
 
     def test_min_setpoint(self):
-        assert self.sim.get_global("minSetpoint") == 25
+        assert self.sim.get_global("minSetpoint") == 20
 
     def test_max_setpoint(self):
         assert self.sim.get_global("maxSetpoint") == 42
@@ -306,26 +314,43 @@ class TestScenarioF_BootInit:
 
 class TestScenarioG_WeatherCurveAccuracy:
     """
-    Verify calculateHeatingCurve produces the expected interpolated setpoints.
+    Verify calculateHeatingCurve produces the expected interpolated setpoints
+    for the 3-point piecewise WAR curve.
 
-    With the default curve (outdoor: -10→+18, setpoint: 40→27):
-      tempRange = 28, setpointRange = 13
+    Control points:
+      Cold: outdoor -7°C  → water 40°C
+      Mid:  outdoor  5°C  → water 33°C
+      Warm: outdoor 15°C  → water 28°C
 
-    At -10°C → 40 (clamped to curveTargetLow)
-    At  18°C → 27 (clamped to curveTargetHigh)
-    At   0°C: tempOffset = 18, setpoint = ceil(27 + 18*13/28) = ceil(27+8.36) = ceil(35.36) = 36
-    At  10°C: tempOffset =  8, setpoint = ceil(27 +  8*13/28) = ceil(27+3.71) = ceil(30.71) = 31
-    At  20°C → 27 (above high threshold, clamped)
-    At -15°C → 40 (below low threshold, clamped)
+    Segment 1 formula (outdoor in [-7, 5]):
+      ceil(33 + (5 - outdoor) * 7 / 12)
+        outdoor=-7:  ceil(33 + 12*7/12) = ceil(40.0)  = 40
+        outdoor=-2:  ceil(33 +  7*7/12) = ceil(37.08) = 38
+        outdoor= 0:  ceil(33 +  5*7/12) = ceil(35.92) = 36
+        outdoor=2.9: ceil(33 + 2.1*7/12)= ceil(34.23) = 35
+        outdoor= 5:  ceil(33 +  0*7/12) = ceil(33.0)  = 33
+
+    Segment 2 formula (outdoor in (5, 15]):
+      ceil(28 + (15 - outdoor) * 5 / 10)
+        outdoor= 5:  ceil(28 + 10*5/10) = ceil(33.0)  = 33
+        outdoor=10:  ceil(28 +  5*5/10) = ceil(30.5)  = 31
+        outdoor=15:  ceil(28 +  0*5/10) = ceil(28.0)  = 28
+
+    Clamping:
+      outdoor <= -7  → 40  (cold clamp)
+      outdoor >= 15  → 28  (warm clamp)
     """
 
     CASES = [
-        (-10,  40, "At coldest extreme, setpoint clamps to curveTargetLow"),
-        ( 18,  27, "At warmest extreme, setpoint clamps to curveTargetHigh"),
-        (  0,  36, "At 0°C, linear interpolation gives 36"),
-        ( 10,  31, "At 10°C, linear interpolation gives 31"),
-        ( 20,  27, "Above high threshold, setpoint clamps to curveTargetHigh"),
-        (-15,  40, "Below low threshold, setpoint clamps to curveTargetLow"),
+        (-10,  40, "Below cold clamp: setpoint = 40"),
+        ( -7,  40, "Cold endpoint: setpoint = 40"),
+        ( -2,  38, "Segment 1 at -2°C: ceil(33 + 7*7/12) = 38"),
+        (  0,  36, "Segment 1 at  0°C: ceil(33 + 5*7/12) = 36"),
+        (2.9,  35, "Segment 1 at 2.9°C: ceil(33 + 2.1*7/12) = 35"),
+        (  5,  33, "Mid endpoint: setpoint = 33"),
+        ( 10,  31, "Segment 2 at 10°C: ceil(28 + 5*5/10) = 31"),
+        ( 15,  28, "Warm endpoint: setpoint = 28"),
+        ( 20,  28, "Above warm clamp: setpoint = 28"),
     ]
 
     @pytest.fixture(autouse=True)

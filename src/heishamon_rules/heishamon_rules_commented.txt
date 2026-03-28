@@ -15,19 +15,23 @@ on System#Boot then
    * values and start the main control loop.
    *************************************************************************]]
   --[[ Weather Dependent Curve Configuration
-   * Define the heating curve: at what outdoor temp, what water temp do we need?
-   * Extrapolated from: 15°C → 28°C and -6°C → 38°C
-   * Result: -10°C → 40°C and 18°C → 27°C
+   * 3-point piecewise linear heating curve calibrated to match Node-RED system.
+   * Two segments with different slopes for better accuracy across the range:
+   *   Segment 1 (cold):  -7°C to  5°C  slope ≈ -0.583°C/°C
+   *   Segment 2 (warm):   5°C to 15°C  slope =  -0.5°C/°C
+   * Outside range: clamped to the nearest endpoint.
    ]]
-  #curveOutdoorLow = -10;       -- Coldest expected outdoor temp (°C)
-  #curveOutdoorHigh = 18;       -- Outdoor temp where heating stops (°C)
-  #curveTargetLow = 40;         -- Water temp at coldest outdoor temp (°C)
-  #curveTargetHigh = 27;        -- Water temp at warmest outdoor temp (°C)
+  #curveOutdoorLow = -7;        -- Cold curve point: outdoor temp (°C)
+  #curveOutdoorMid = 5;         -- Mid curve point: outdoor temp (°C)
+  #curveOutdoorHigh = 15;       -- Warm curve point: outdoor temp (°C)
+  #curveTargetLow = 40;         -- Cold curve point: water temp (°C)
+  #curveTargetMid = 33;         -- Mid curve point: water temp (°C)
+  #curveTargetHigh = 28;        -- Warm curve point: water temp (°C)
 
   --[[ Safety Limits
    * Prevent extreme setpoints that could damage the system
    ]]
-  #minSetpoint = 25;            -- Minimum water temperature (°C)
+  #minSetpoint = 20;            -- Minimum water temperature (°C)
   #maxSetpoint = 42;            -- Maximum water temperature (°C)
 
   --[[ Control Settings
@@ -79,17 +83,41 @@ end
 
 on calculateHeatingCurve($outdoorTemp) then
   --[[*************************************************************************
-   * HEATING CURVE CALCULATION FUNCTION
+   * HEATING CURVE CALCULATION FUNCTION (3-Point Piecewise WAR)
    *
-   * Calculates the optimal water setpoint based on outdoor temperature using
-   * linear interpolation between two points on the heating curve.
+   * What is WAR (Weather-Dependent Control)?
+   * -----------------------------------------
+   * WAR (Weather Dependent Auto-Regulation) adjusts the water supply
+   * temperature based on outdoor temperature. Colder outside → higher water
+   * temp; milder outside → lower water temp. This keeps the house at the
+   * target comfort level without manual intervention.
    *
-   * Linear interpolation between two points:
-   * Point 1: (#curveOutdoorLow, #curveTargetLow)   e.g., (-10°C, 45°C)
-   * Point 2: (#curveOutdoorHigh, #curveTargetHigh) e.g., (18°C, 25°C)
+   * Why piecewise instead of a single straight line?
+   * -------------------------------------------------
+   * A single line forces a compromise: you can tune it for cold days OR mild
+   * days, but not both. A two-segment piecewise curve lets each part of the
+   * range have its own slope, matching real-world heat-loss characteristics
+   * more accurately. This implementation mirrors the Node-RED calibration
+   * exactly, replacing the old 2-point curve (-10°C→40°C / 18°C→27°C).
    *
-   * Formula: setpoint = target_low + (outdoor_high - outdoor_temp) *
-   *                     (target_low - target_high) / (outdoor_high - outdoor_low)
+   * The 3 control points:
+   * ----------------------
+   *   Cold point:  outdoor -7°C → water 40°C  (maximum heating demand)
+   *   Mid  point:  outdoor  5°C → water 33°C  (transition between segments)
+   *   Warm point:  outdoor 15°C → water 28°C  (minimum heating demand)
+   *
+   * Two segments and their slopes:
+   * --------------------------------
+   *   Segment 1 (cold,  -7°C to  5°C): slope = (33-40)/(5-(-7)) ≈ -0.583°C/°C
+   *   Segment 2 (warm,   5°C to 15°C): slope = (28-33)/(15-5)   =  -0.500°C/°C
+   *
+   * Segment 1 is steeper: every extra degree of cold requires more heating.
+   * Segment 2 is shallower: mild temperatures need only gentle adjustment.
+   *
+   * Clamping:
+   * ---------
+   *   outdoor ≤ -7°C → setpoint = 40°C (cold clamp)
+   *   outdoor ≥ 15°C → setpoint = 28°C (warm clamp)
    *
    * Parameters:
    *   $outdoorTemp - Current outdoor temperature (°C)
@@ -97,22 +125,28 @@ on calculateHeatingCurve($outdoorTemp) then
    * Returns:
    *   #calculatedSetpoint - Calculated setpoint with safety limits applied (°C)
    *************************************************************************]]
-  -- Check if outdoor temp is above heating threshold
-  if $outdoorTemp >= #curveOutdoorHigh then
-    $calculatedSetpoint = #curveTargetHigh;
 
-  -- Check if outdoor temp is below minimum
-  elseif $outdoorTemp <= #curveOutdoorLow then
+  -- Clamp: below cold point
+  if $outdoorTemp <= #curveOutdoorLow then
     $calculatedSetpoint = #curveTargetLow;
 
-  -- Outdoor temp is within range - calculate using linear curve
-  else
-    $tempRange = #curveOutdoorHigh - #curveOutdoorLow;
-    $setpointRange = #curveTargetLow - #curveTargetHigh;
-    $tempOffset = #curveOutdoorHigh - $outdoorTemp;
+  -- Clamp: above warm point
+  elseif $outdoorTemp >= #curveOutdoorHigh then
+    $calculatedSetpoint = #curveTargetHigh;
 
-    $calculatedSetpoint = ceil(#curveTargetHigh +
-                                ($tempOffset * $setpointRange / $tempRange));
+  -- Segment 1: cold range (-7°C to 5°C) — interpolate between Low and Mid
+  elseif $outdoorTemp <= #curveOutdoorMid then
+    $tempRange = #curveOutdoorMid - #curveOutdoorLow;
+    $setpointRange = #curveTargetLow - #curveTargetMid;
+    $tempOffset = #curveOutdoorMid - $outdoorTemp;
+    $calculatedSetpoint = ceil(#curveTargetMid + ($tempOffset * $setpointRange / $tempRange));
+
+  -- Segment 2: warm range (5°C to 15°C) — interpolate between Mid and High
+  else
+    $tempRange = #curveOutdoorHigh - #curveOutdoorMid;
+    $setpointRange = #curveTargetMid - #curveTargetHigh;
+    $tempOffset = #curveOutdoorHigh - $outdoorTemp;
+    $calculatedSetpoint = ceil(#curveTargetHigh + ($tempOffset * $setpointRange / $tempRange));
   end
 
   -- Apply safety limits to prevent extreme values

@@ -1,0 +1,38 @@
+# Sync configuration (contains server credentials)
+.sync-config
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+.uv/
+
+# IDEs
+# .vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Home Assistant
+*.log
+
+# Dev container data
+.devcontainer/ha-config/
+
+# HeishaMon rules (generated)
+heishamon_rules/heishamon_rules_minified.txt
+
+# AI
+.claude/

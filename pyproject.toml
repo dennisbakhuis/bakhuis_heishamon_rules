@@ -1,0 +1,9 @@
+[project]
+name = "bakhuis-heishamon-rules"
+version = "0.1.0"
+description = "Rules file for Heishamon to control Panasonic heatpump."
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "heishamon-rules-minify>=0.0.4",
+]

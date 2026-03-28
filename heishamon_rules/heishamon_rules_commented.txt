@@ -1,0 +1,285 @@
+--[[*******************************************************************************
+ * HeishaMon WDC (Weather Dependent Control) Rules
+ * Weather-Dependent Heating Curve Control for Panasonic Aquarea Heat Pump
+ *
+ * Author: Dennis Bakhuis
+ * Version: 0.1.0
+ * Last Updated: 2025-10-19
+ *******************************************************************************]]
+
+on System#Boot then
+  --[[*************************************************************************
+   * SYSTEM BOOT - Initialize Variables
+   *
+   * This runs once when HeishaMon starts up. We set up all our configuration
+   * values and start the main control loop.
+   *************************************************************************]]
+  --[[ Weather Dependent Curve Configuration
+   * Define the heating curve: at what outdoor temp, what water temp do we need?
+   * Extrapolated from: 15°C → 28°C and -6°C → 38°C
+   * Result: -10°C → 40°C and 18°C → 27°C
+   ]]
+  #curveOutdoorLow = -10;       -- Coldest expected outdoor temp (°C)
+  #curveOutdoorHigh = 18;       -- Outdoor temp where heating stops (°C)
+  #curveTargetLow = 40;         -- Water temp at coldest outdoor temp (°C)
+  #curveTargetHigh = 27;        -- Water temp at warmest outdoor temp (°C)
+
+  --[[ Safety Limits
+   * Prevent extreme setpoints that could damage the system
+   ]]
+  #minSetpoint = 25;            -- Minimum water temperature (°C)
+  #maxSetpoint = 42;            -- Maximum water temperature (°C)
+
+  --[[ Control Settings
+   * How often to recalculate and apply the setpoint
+   ]]
+  #updateInterval = 1800;       -- Update every 1800 seconds (30 minutes)
+  #hysteresis = 0.5;            -- Only update if change is > 0.5°C
+
+  --[[ State Tracking
+   * Remember the last setpoint we applied
+   ]]
+  #lastSetpoint = 0;            -- Track previous setpoint to avoid unnecessary updates
+
+  --[[ Temperature Smoothing
+   * Initialize smoothed outdoor temperature for stable control
+   ]]
+  #OutsideTemp = @Outside_Temp; -- Initialize with current reading
+
+  --[[ Minimum Frequency Control
+   * Dynamic setpoint adjustment to keep HP running at minimum frequency
+   * This improves efficiency and reduces cycling
+   ]]
+  #enableMinFreq = 1;           -- Enable/disable min frequency control (1=on, 0=off)
+  #dynamicShift = 0;            -- Current shift applied to base setpoint (-3 to +1°C)
+  #minFreqMargin = 3;           -- Keep setpoint this many °C above inlet (default: 3°C)
+
+  --[[ Pump Speed Control
+   * Adjust pump duty based on compressor state
+   * Higher flow when heating, lower when circulating
+   * Values are duty setpoints (not percentages)
+   ]]
+  #enablePumpControl = 1;       -- Enable/disable pump control (1=on, 0=off)
+  #pumpDutyHigh = 140;          -- Duty when compressor running (setpoint value)
+  #pumpDutyLow = 93;            -- Duty when compressor off (setpoint value)
+  #lastPumpDuty = 0;            -- Track last applied duty to avoid excessive updates
+
+  --[[ Start the timers
+   * Timer 1: Weather curve calculation (after 60 seconds to allow system initialization)
+   * Timer 2: Fast temperature smoothing (after 30 seconds)
+   * Timer 3: Minimum frequency control (after 90 seconds)
+   * Timer 4: Pump speed control (after 15 seconds)
+   ]]
+  setTimer(1, 60);
+  setTimer(2, 30);
+  setTimer(3, 90);
+  setTimer(4, 15);
+end
+
+on calculateHeatingCurve($outdoorTemp) then
+  --[[*************************************************************************
+   * HEATING CURVE CALCULATION FUNCTION
+   *
+   * Calculates the optimal water setpoint based on outdoor temperature using
+   * linear interpolation between two points on the heating curve.
+   *
+   * Linear interpolation between two points:
+   * Point 1: (#curveOutdoorLow, #curveTargetLow)   e.g., (-10°C, 45°C)
+   * Point 2: (#curveOutdoorHigh, #curveTargetHigh) e.g., (18°C, 25°C)
+   *
+   * Formula: setpoint = target_low + (outdoor_high - outdoor_temp) *
+   *                     (target_low - target_high) / (outdoor_high - outdoor_low)
+   *
+   * Parameters:
+   *   $outdoorTemp - Current outdoor temperature (°C)
+   *
+   * Returns:
+   *   #calculatedSetpoint - Calculated setpoint with safety limits applied (°C)
+   *************************************************************************]]
+  -- Check if outdoor temp is above heating threshold
+  if $outdoorTemp >= #curveOutdoorHigh then
+    $calculatedSetpoint = #curveTargetHigh;
+
+  -- Check if outdoor temp is below minimum
+  elseif $outdoorTemp <= #curveOutdoorLow then
+    $calculatedSetpoint = #curveTargetLow;
+
+  -- Outdoor temp is within range - calculate using linear curve
+  else
+    $tempRange = #curveOutdoorHigh - #curveOutdoorLow;
+    $setpointRange = #curveTargetLow - #curveTargetHigh;
+    $tempOffset = #curveOutdoorHigh - $outdoorTemp;
+
+    $calculatedSetpoint = ceil(#curveTargetHigh +
+                                ($tempOffset * $setpointRange / $tempRange));
+  end
+
+  -- Apply safety limits to prevent extreme values
+  #calculatedSetpoint = max(#minSetpoint, min(#maxSetpoint, $calculatedSetpoint));
+end
+
+on timer=2 then
+  --[[*************************************************************************
+   * TEMPERATURE SMOOTHING TIMER
+   *
+   * Runs every 30 seconds to create a rolling average of outdoor temperature.
+   * This prevents rapid setpoint changes from sensor noise or brief weather
+   * fluctuations. Uses exponential moving average: 59 parts old + 1 part new,
+   * creating an approximately 30-minute time constant.
+   *************************************************************************]]
+  setTimer(2, 30);
+
+  -- Apply rolling average if sensor data is available
+  if isset(@Outside_Temp) then
+    #OutsideTemp = (#OutsideTemp * 59 + @Outside_Temp) / 60;
+  end
+end
+
+on timer=3 then
+  --[[*************************************************************************
+   * MINIMUM FREQUENCY CONTROL TIMER
+   *
+   * Runs every 30 seconds to dynamically adjust the setpoint based on actual
+   * water temperatures. This keeps the heat pump running continuously at
+   * minimum frequency (lowest compressor speed) instead of cycling on/off.
+   *
+   * Strategy:
+   * - When outlet temp approaches base setpoint: Lower the setpoint
+   * - This keeps the HP "chasing" a moving target at minimum frequency
+   * - Result: Better efficiency, less noise, fewer start/stop cycles
+   *
+   * The setpoint stays approximately #minFreqMargin (3°C) above inlet temp.
+   *************************************************************************]]
+  setTimer(3, 30);
+
+  -- Only active if enabled and all required sensors are available
+  if #enableMinFreq == 1 &&
+     isset(@Main_Outlet_Temp) &&
+     isset(@Main_Inlet_Temp) &&
+     isset(@Defrosting_State) &&
+     @Defrosting_State == 0 then
+
+    -- Calculate how far outlet is from base setpoint
+    $outletDelta = @Main_Outlet_Temp - #calculatedSetpoint;
+
+    -- CASE 1: Outlet approaching or above setpoint
+    -- Lower the shift to keep HP running at minimum frequency
+    if $outletDelta > -2 then
+      -- Calculate desired shift to keep setpoint ~3°C above inlet
+      $targetShift = (#calculatedSetpoint + #minFreqMargin) - @Main_Outlet_Temp;
+      #dynamicShift = max(-3, $targetShift);
+
+    -- CASE 2: Outlet significantly below setpoint
+    -- Reset shift - let HP heat normally at higher frequency
+    elseif $outletDelta < -4 then
+      #dynamicShift = 0;
+
+    -- CASE 3: In transition zone (-4°C to -2°C below setpoint)
+    -- Maintain current shift - no change needed (do nothing)
+    end
+
+    -- Safety: Limit shift range to prevent extreme adjustments
+    #dynamicShift = max(-3, min(1, #dynamicShift));
+
+    -- Apply the adjusted setpoint (base + shift)
+    $finalSetpoint = #calculatedSetpoint + #dynamicShift;
+    $finalSetpoint = max(#minSetpoint, min(#maxSetpoint, $finalSetpoint));
+
+    -- Apply with hysteresis to prevent excessive updates
+    $setpointDelta = $finalSetpoint - #lastSetpoint;
+    if $setpointDelta < 0 then
+      $setpointDelta = 0 - $setpointDelta;
+    end
+
+    if $setpointDelta > #hysteresis then
+      @SetZ1HeatRequestTemperature = $finalSetpoint;
+      #lastSetpoint = $finalSetpoint;
+    end
+  end
+end
+
+on timer=4 then
+  --[[*************************************************************************
+   * PUMP SPEED CONTROL TIMER
+   *
+   * Runs every 15 seconds to adjust pump speed based on compressor state.
+   * This reduces noise and energy consumption during circulation periods
+   * while ensuring adequate flow when compressor is actively heating.
+   *
+   * Strategy:
+   * - Compressor ON (freq > 0): High duty (140) for adequate flow
+   * - Compressor OFF (freq = 0): Low duty (82) for quiet circulation
+   *
+   * Fast response time (15s) ensures pump ramps up quickly when HP starts,
+   * preventing any flow-related issues during compressor startup.
+   *************************************************************************]]
+  setTimer(4, 15);
+
+  -- Only active if enabled and required sensors are available
+  if #enablePumpControl == 1 &&
+     isset(@Compressor_Freq) then
+
+    -- Determine required pump duty based on compressor state
+    if @Compressor_Freq > 0 then
+      -- CASE 1: Compressor running - need adequate flow for heat transport
+      $targetPumpDuty = #pumpDutyHigh;
+    else
+      -- CASE 2: Compressor off - minimal circulation only
+      $targetPumpDuty = #pumpDutyLow;
+    end
+
+    -- Apply only if changed (avoid unnecessary MQTT updates)
+    if $targetPumpDuty != #lastPumpDuty then
+      @SetMaxPumpDuty = $targetPumpDuty;
+      #lastPumpDuty = $targetPumpDuty;
+    end
+  end
+end
+
+on timer=1 then
+  --[[*************************************************************************
+   * WEATHER CURVE CALCULATION TIMER
+   *
+   * This timer runs periodically (every #updateInterval seconds) to:
+   * 1. Read the smoothed outdoor temperature
+   * 2. Calculate the BASE setpoint using the heating curve
+   * 3. If min-freq control is disabled, apply the setpoint directly
+   * 4. If min-freq control is enabled, timer=3 handles setpoint application
+   *
+   * The calculated setpoint (#calculatedSetpoint) is used by timer=3 as the
+   * base value for dynamic adjustment.
+   *************************************************************************]]
+  -- Schedule next execution
+  setTimer(1, #updateInterval);
+
+  -- Safety check: Only proceed if outdoor temperature sensor is available
+  if isset(@Outside_Temp) then
+    -- Use smoothed outdoor temperature for stable control
+    $outdoorTemp = #OutsideTemp;
+
+    -- Calculate the optimal BASE setpoint using the heating curve
+    calculateHeatingCurve($outdoorTemp);
+
+    --[[*************************************************************************
+     * APPLY SETPOINT DIRECTLY (only if min-freq control is disabled)
+     *
+     * When minimum frequency control is enabled, timer=3 handles setpoint
+     * application with dynamic adjustments. When disabled, we apply the
+     * base setpoint directly here.
+     *************************************************************************]]
+
+    if #enableMinFreq == 0 then
+      -- Calculate absolute difference (HeishaMon doesn't have abs() function)
+      $setpointDelta = #calculatedSetpoint - #lastSetpoint;
+      if $setpointDelta < 0 then
+        $setpointDelta = 0 - $setpointDelta;
+      end
+
+      if $setpointDelta > #hysteresis then
+        -- Setpoint has changed significantly - apply it
+        @SetZ1HeatRequestTemperature = #calculatedSetpoint;
+        #lastSetpoint = #calculatedSetpoint;
+      end
+    end
+  end
+end

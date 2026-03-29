@@ -13,7 +13,7 @@ import re
 import sys
 import types
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -35,7 +35,7 @@ def _build_ha_stubs() -> dict[str, types.ModuleType]:
         stubs[name] = m
         return m
 
-    ha = _mod("homeassistant")
+    _mod("homeassistant")
     ha_core = _mod("homeassistant.core")
     ha_core.HomeAssistant = MagicMock  # type: ignore[attr-defined]
     ha_core.callback = lambda f: f  # type: ignore[attr-defined]
@@ -43,7 +43,7 @@ def _build_ha_stubs() -> dict[str, types.ModuleType]:
     ha_cfg = _mod("homeassistant.config_entries")
     ha_cfg.ConfigEntry = MagicMock  # type: ignore[attr-defined]
 
-    ha_comp = _mod("homeassistant.components")
+    _mod("homeassistant.components")
     ha_mqtt = _mod("homeassistant.components.mqtt")
     ha_mqtt.async_subscribe = AsyncMock()  # type: ignore[attr-defined]
     ha_mqtt.async_publish = AsyncMock()  # type: ignore[attr-defined]
@@ -52,11 +52,11 @@ def _build_ha_stubs() -> dict[str, types.ModuleType]:
     ha_frontend.async_register_built_in_panel = MagicMock()  # type: ignore[attr-defined]
     ha_frontend.async_remove_panel = MagicMock()  # type: ignore[attr-defined]
 
-    ha_lovelace = _mod("homeassistant.components.lovelace")
+    _mod("homeassistant.components.lovelace")
     ha_lovelace_dash = _mod("homeassistant.components.lovelace.dashboard")
     ha_lovelace_dash.LovelaceYAML = MagicMock()  # type: ignore[attr-defined]
 
-    ha_helpers = _mod("homeassistant.helpers")
+    _mod("homeassistant.helpers")
     ha_event = _mod("homeassistant.helpers.event")
     ha_event.async_track_state_change_event = MagicMock()  # type: ignore[attr-defined]
     ha_event.async_track_time_interval = MagicMock()  # type: ignore[attr-defined]
@@ -245,7 +245,6 @@ async def test_setup_entry_lovelace_yaml_called_with_correct_args(
 
     from custom_components.climate_manager import (  # noqa: PLC0415
         DASHBOARD_URL_PATH,
-        async_setup_entry,
     )
 
     # Capture the LovelaceYAML constructor calls

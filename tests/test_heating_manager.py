@@ -22,16 +22,6 @@ import yaml
 
 HM_DIR = Path(__file__).parent.parent / "src" / "heating_manager"
 
-# ─── Entities provided by the external HeishaMon integration ─────────────────
-# These come from heishamon.yaml (the integration's own config) and are not
-# defined in sensors.yaml or helpers.yaml.
-HEISHAMON_YAML_ENTITIES: set[str] = {
-    "input_select.heishamon_quietmode",
-    "input_select.heishamon_heatmode",
-    "input_number.heishamon_heatshift_z1",
-    "input_number.heishamon_tank_temp",
-}
-
 
 # =============================================================================
 # Group A — YAML validity
@@ -76,7 +66,7 @@ class TestEntityConsistency:
     def test_all_dashboard_entities_are_defined(self) -> None:
         """
         Every entity referenced in dashboard.yaml must be defined in
-        sensors.yaml, helpers.yaml, or the known HeishaMon allowlist.
+        sensors.yaml or helpers.yaml.
 
         The check filters to heishamon_* entities only, ignoring aquarea_* or
         other non-heishamon references that may appear in the dashboard.
@@ -94,14 +84,16 @@ class TestEntityConsistency:
             f"switch.{uid}" for uid in sensor_ids
         }
 
-        # --- input_number.* and input_datetime.* from helpers.yaml ---
+        # --- input_number.*, input_datetime.*, and input_select.* from helpers.yaml ---
         # Keys at exactly 2-space indent are the helper entity names.
         input_keys = set(re.findall(r"^  (\w+):", helpers_text, re.MULTILINE))
-        defined_helpers = {f"input_number.{k}" for k in input_keys} | {
-            f"input_datetime.{k}" for k in input_keys
-        }
+        defined_helpers = (
+            {f"input_number.{k}" for k in input_keys}
+            | {f"input_datetime.{k}" for k in input_keys}
+            | {f"input_select.{k}" for k in input_keys}
+        )
 
-        all_defined = defined_sensors | defined_helpers | HEISHAMON_YAML_ENTITIES
+        all_defined = defined_sensors | defined_helpers
 
         # Only check heishamon_* references (skip aquarea_*, generic sensor names etc.)
         heishamon_refs = {e for e in referenced if "heishamon" in e}

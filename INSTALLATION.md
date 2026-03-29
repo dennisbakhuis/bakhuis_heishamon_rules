@@ -5,7 +5,7 @@ Follow the phases **in order** — each phase builds on the previous one.
 
 ```
 Phase 1 → HeishaMon hardware + MQTT
-Phase 2 → Home Assistant sensors (heishamon.yaml)
+Phase 2 → Configure MQTT in Home Assistant
 Phase 3 → Heating Manager dashboard (monitor before you control)
 Phase 4 → Deploy the rules script
 ```
@@ -70,40 +70,39 @@ that lets Home Assistant send room temperature values to the rules.
 
 ---
 
-## Phase 2 — Home Assistant integration
+## Phase 2 — Configure MQTT in Home Assistant
 
-### 2.1 Install the HeishaMon HA package
+### 2.1 Add the MQTT integration
 
-The HeishaMon project provides a ready-made HA package that creates all sensors,
-input helpers, and controls from the MQTT topics.
+In HA: **Settings → Devices & Services → Add Integration → MQTT** — configure
+your broker details (host/IP, port 1883, and optionally username/password).
 
-Download [`heishamon.yaml`](https://github.com/heishamon/HeishaMon/blob/main/Integrations/Home%20Assistant/heishamon.yaml)
-and place it in your HA config folder (e.g. `config/packages/heishamon.yaml`).
+If you already have the MQTT integration, skip this step.
 
-Add packages support to `configuration.yaml` if not already present:
-```yaml
-homeassistant:
-  packages: !include_dir_named packages/
-```
+### 2.2 Verify MQTT connectivity
 
-### 2.2 Configure the MQTT integration in HA
+Go to **Developer Tools → MQTT** in HA and subscribe to `panasonic_heat_pump/#`.
+Within 60 seconds you should see messages arriving from HeishaMon.
 
-In HA: **Settings → Devices & Services → MQTT** — configure your broker details
-if not already done.
+If nothing arrives, confirm HeishaMon is online and its MQTT broker settings
+(host/IP, port, credentials) match your broker.
 
-### 2.3 Restart Home Assistant
+---
 
-After adding `heishamon.yaml`, do a full restart (not just a reload).
-
-### 2.4 Verify sensors appear
-
-Go to **Developer Tools → States** and search for `aquarea`.
-You should see entities like:
-- `sensor.aquarea_outside_ambient_temperature`
-- `sensor.aquarea_outlet_temperature`
-- `sensor.aquarea_compressor_frequency`
-
-If they show `unavailable`, check MQTT is connected and HeishaMon is publishing.
+> **Optional: HeishaMon HA integration (HACS)**
+>
+> The HeishaMon project also provides a ready-made HA integration package
+> ([heishamon-homeassistant](https://github.com/kamaradclimber/heishamon-homeassistant))
+> that creates additional sensors and controls via HACS.
+>
+> **This is NOT required for the Heating Manager.** The Heating Manager is
+> fully self-contained — all sensors, controls, and automations are defined in
+> the files under `src/heating_manager/`. The only dependency is the MQTT
+> broker, which you configured in step 2.1.
+>
+> You may still install the HACS integration if you want its additional
+> features (e.g. full device integration, diagnostics), but the Heating
+> Manager will work without it.
 
 ---
 
@@ -248,7 +247,7 @@ re-upload the minified file.
 | Symptom | Check |
 |---------|-------|
 | HeishaMon not publishing MQTT | HeishaMon web UI → Log tab; verify broker IP and credentials |
-| HA sensors `unavailable` | MQTT connected? heishamon.yaml loaded? HA restarted? |
+| HA sensors `unavailable` | MQTT connected? sensors.yaml added to configuration.yaml? HA restarted? |
 | Dashboard showing wrong entity IDs | See `src/heating_manager/README.md` → Entity ID verification |
 | Rules not taking effect | HeishaMon Console → any parse errors? Rules tab → is ruleset saved? |
 | Z1 request not changing | Check `@Outside_Temp` is available; timer=1 fires after 60s from boot |
@@ -262,7 +261,7 @@ re-upload the minified file.
 ```
 Phase 1  HeishaMon device → connected to HP → publishing to MQTT
    ↓
-Phase 2  heishamon.yaml → HA sensors created → live data visible in HA
+Phase 2  MQTT integration configured in HA → broker connected
    ↓
 Phase 3  Heating Manager → dashboard installed → Analysis tab shows WAR/RTC/soft-start
    ↓

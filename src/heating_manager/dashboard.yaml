@@ -1,7 +1,7 @@
 # All sensor entities follow the heishamon_* naming convention
-# defined in sensors.yaml. The only exceptions are the
-# input_select/input_number controls from heishamon.yaml
-# (quiet mode, heat mode, shifts).
+# defined in sensors.yaml.
+# All controls are self-contained — no external HA integration required.
+# The only dependency is the MQTT broker (already required for HeishaMon).
 # To adapt to a different MQTT prefix, edit sensors.yaml only.
 #
 # ============================================================
@@ -532,31 +532,26 @@ views:
             title: Heat Pump Controls
             entities:
               # Quiet mode — reduces noise at the cost of efficiency
-              - entity: input_select.heishamon_quietmode
+              - entity: input_select.heishamon_quiet_mode
                 name: Quiet Mode
                 icon: mdi:volume-off
 
-              # Heat mode — controls operating mode (compensation curve, etc.)
-              - entity: input_select.heishamon_heatmode
-                name: Heat Mode
-                icon: mdi:fire
+              # Operation mode — controls operating mode (Heat, DHW, combined, etc.)
+              - entity: input_select.heishamon_operation_mode
+                name: Operation Mode
+                icon: mdi:heat-pump
 
               - type: divider
 
-              # Manual Z1 heat shift — adds/subtracts from setpoint directly
-              - entity: input_number.heishamon_heatshift_z1
-                name: Z1 Heat Shift (manual offset)
-                icon: mdi:tune
-
               # DHW target temperature
-              - entity: input_number.heishamon_tank_temp
+              - entity: input_number.heishamon_dhw_temp
                 name: DHW Target Temperature
-                icon: mdi:water-boiler
+                icon: mdi:water-thermometer
 
           - type: markdown
             content: >
               > Changes to these controls are published to HeishaMon via MQTT automations
-              > defined in `heishamon.yaml`. The heat pump responds within one polling cycle (~10s).
+              > defined in `automations.yaml`. The heat pump responds within one polling cycle (~10s).
 
       # ----------------------------------------------------------
       # SECTION C — SYSTEM PREREQUISITES CHECK

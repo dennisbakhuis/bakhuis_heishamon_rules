@@ -101,13 +101,34 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data[DOMAIN][entry.entry_id]["listeners"].append(cancel_keepalive)
 
     # --- Automation 2: Compressor tracker ---
+    import time as _time
+
+    # Seed initial state — if compressor is already running on HA startup,
+    # initialise start_epoch to now() so run-seconds counts up immediately.
+    # (We don't know the actual start time, so 'now' is an approximation.)
+    async def _maybe_init_compressor_epoch() -> None:
+        state = hass.states.get("sensor.climate_manager_compressor_freq")
+        if state and state.state not in ("unknown", "unavailable"):
+            try:
+                if float(state.state) > 10:
+                    epoch_state = hass.states.get("number.climate_manager_compressor_start_epoch")
+                    current_epoch = float(epoch_state.state) if epoch_state and epoch_state.state not in ("unknown", "unavailable") else 0
+                    if current_epoch <= 0:
+                        await hass.services.async_call(
+                            "number", "set_value",
+                            {"entity_id": "number.climate_manager_compressor_start_epoch",
+                             "value": int(_time.time())},
+                        )
+            except (ValueError, TypeError):
+                pass
+
+    hass.async_create_task(_maybe_init_compressor_epoch())
+
     _prev_freq_above_threshold: dict[str, bool] = {"value": False}
 
     @callback
     def _on_compressor_freq_change(event: object) -> None:
         """Track compressor start: when freq goes from ≤10 to >10, record epoch."""
-        import time
-
         state = hass.states.get("sensor.climate_manager_compressor_freq")
         if state is None or state.state in ("unknown", "unavailable"):
             return
@@ -123,7 +144,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
         if not was_above and is_above:
             # Compressor just started
-            epoch = int(time.time())
+            epoch = int(_time.time())
             hass.async_create_task(
                 hass.services.async_call(
                     "number",

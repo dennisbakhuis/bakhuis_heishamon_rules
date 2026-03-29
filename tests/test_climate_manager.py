@@ -110,6 +110,7 @@ EXPECTED_ENTITIES = {
     "sensor.climate_manager_softstart_shift",
     "sensor.climate_manager_softstart_progress",
     "sensor.climate_manager_heat_cop",
+    "sensor.climate_manager_room_sensor_temp",
     # Switch (1)
     "switch.climate_manager_heat_pump",
     # Numbers (13, excluding hidden compressor_start_epoch)

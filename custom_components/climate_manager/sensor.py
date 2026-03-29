@@ -254,7 +254,7 @@ MQTT_SENSOR_DESCRIPTIONS = [
     ),
     (
         TOPIC_FAN1_SPEED,
-        "Fan 1 Speed",
+        "Fan1 Speed",
         "fan1_speed",
         "RPM",
         None,
@@ -264,7 +264,7 @@ MQTT_SENSOR_DESCRIPTIONS = [
     ),
     (
         TOPIC_FAN2_SPEED,
-        "Fan 2 Speed",
+        "Fan2 Speed",
         "fan2_speed",
         "RPM",
         None,
@@ -382,6 +382,7 @@ async def async_setup_entry(
             SoftStartShiftSensor(entry),
             SoftStartProgressSensor(entry),
             HeatCOPSensor(entry),
+            RoomSensorTempSensor(entry),
         ]
     )
 
@@ -807,3 +808,55 @@ class HeatCOPSensor(HeishaMonTemplateSensor):
             self._attr_native_value = round(produced / consumed, 2)
         else:
             self._attr_native_value = None
+
+
+class RoomSensorTempSensor(HeishaMonTemplateSensor):
+    """Template sensor mirroring the configured external room sensor."""
+
+    _attr_name = "Room Sensor Temp"
+    _attr_unique_id = "climate_manager_room_sensor_temp"
+    _attr_native_unit_of_measurement = "°C"
+    _attr_device_class = SensorDeviceClass.TEMPERATURE
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_icon = "mdi:home-thermometer"
+
+    _dependencies: list[str] = []  # no static deps — dynamic in async_added_to_hass
+
+    def _get_room_entity(self) -> str:
+        """Return the configured room sensor entity ID."""
+        return (
+            self._entry.options.get("room_sensor")
+            or self._entry.data.get("room_sensor", "")
+        ) or ""
+
+    def _update(self) -> None:
+        entity_id = self._get_room_entity()
+        self._attr_extra_state_attributes = {
+            "room_sensor_entity": entity_id if entity_id else "not configured"
+        }
+        if not entity_id:
+            self._attr_native_value = None
+            return
+        state = self.hass.states.get(entity_id)
+        if state is None or state.state in ("unknown", "unavailable", ""):
+            self._attr_native_value = None
+            return
+        try:
+            self._attr_native_value = round(float(state.state), 1)
+        except (ValueError, TypeError):
+            self._attr_native_value = None
+
+    async def async_added_to_hass(self) -> None:
+        """Subscribe to the configured room sensor entity changes."""
+        # Call grandparent (SensorEntity) to avoid base class trying to track empty _dependencies
+        await super().async_added_to_hass()
+        entity_id = self._get_room_entity()
+        if entity_id:
+            cancel = async_track_state_change_event(
+                self.hass,
+                [entity_id],
+                lambda _event: (self._update(), self.async_write_ha_state()),
+            )
+            self._cancel_listeners.append(cancel)
+        self._update()
+        self.async_write_ha_state()

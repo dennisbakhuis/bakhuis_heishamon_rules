@@ -1,7 +1,7 @@
 {
   "domain": "climate_manager",
   "name": "Climate Manager for HeishaMon",
-  "version": "0.3.4",
+  "version": "0.3.5",
   "documentation": "https://github.com/dennisbakhuis/bakhuis_heishamon_rules",
   "issue_tracker": "https://github.com/dennisbakhuis/bakhuis_heishamon_rules/issues",
   "codeowners": ["@dennisbakhuis"],

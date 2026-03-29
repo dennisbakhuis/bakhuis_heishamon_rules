@@ -1,0 +1,755 @@
+# ============================================================
+# Heating Manager Package — Home Assistant
+# For Panasonic Aquarea via HeishaMon
+#
+# INSTALLATION:
+#   1. Copy this file to: config/packages/heating_manager_package.yaml
+#   2. Add to configuration.yaml:
+#        homeassistant:
+#          packages:
+#            heating_manager: !include packages/heating_manager_package.yaml
+#   3. Set your room temperature sensor (search for REPLACE_WITH_YOUR_ROOM_SENSOR below)
+#   4. Restart Home Assistant
+#   5. Import the dashboard from src/heating_manager/dashboard.yaml
+#
+# MQTT BASE TOPIC: panasonic_heat_pump (default HeishaMon topic)
+#   If your HeishaMon uses a different base topic, do a find-and-replace
+#   on "panasonic_heat_pump" in this file before installing.
+#
+# All other settings are configurable from the Settings tab in the dashboard.
+# ============================================================
+
+
+# ============================================================
+# SECTION 1 — MQTT SWITCH + SENSORS
+# ============================================================
+
+mqtt:
+
+  # ── HP ON/OFF MASTER SWITCH ────────────────────────────────
+  switch:
+    - name: "Heishamon Heat Pump"
+      unique_id: heishamon_heatpump
+      state_topic: "panasonic_heat_pump/main/Heatpump_State"
+      command_topic: "panasonic_heat_pump/commands/SetHeatpump"
+      payload_on: "1"
+      payload_off: "0"
+      state_on: "1"
+      state_off: "0"
+      icon: mdi:heat-pump
+
+  sensor:
+
+    # ── HP STATUS ──────────────────────────────────────────────
+    - name: "Heishamon Heatpump State"
+      unique_id: heishamon_heatpump_state
+      state_topic: "panasonic_heat_pump/main/Heatpump_State"
+      icon: mdi:power
+
+    - name: "Heishamon Operating Mode"
+      unique_id: heishamon_operating_mode
+      state_topic: "panasonic_heat_pump/main/Operating_Mode_State"
+      icon: mdi:cog-outline
+
+    - name: "Heishamon Defrosting State"
+      unique_id: heishamon_defrosting_state
+      state_topic: "panasonic_heat_pump/main/Defrosting_State"
+      icon: mdi:snowflake-melt
+
+    - name: "Heishamon Quiet Mode"
+      unique_id: heishamon_quiet_mode
+      state_topic: "panasonic_heat_pump/main/Quiet_Mode_Level"
+      icon: mdi:volume-off
+
+    # ── TEMPERATURES ───────────────────────────────────────────
+    - name: "Heishamon Outside Temp"
+      unique_id: heishamon_outside_temp
+      state_topic: "panasonic_heat_pump/main/Outside_Temp"
+      unit_of_measurement: "°C"
+      device_class: temperature
+      state_class: measurement
+      icon: mdi:thermometer
+
+    - name: "Heishamon Outside Pipe Temp"
+      unique_id: heishamon_outside_pipe_temp
+      state_topic: "panasonic_heat_pump/main/Outside_Pipe_Temp"
+      unit_of_measurement: "°C"
+      device_class: temperature
+      state_class: measurement
+      icon: mdi:pipe
+
+    - name: "Heishamon Inlet Temp"
+      unique_id: heishamon_inlet_temp
+      state_topic: "panasonic_heat_pump/main/Main_Inlet_Temp"
+      unit_of_measurement: "°C"
+      device_class: temperature
+      state_class: measurement
+      icon: mdi:thermometer-water
+
+    - name: "Heishamon Outlet Temp"
+      unique_id: heishamon_outlet_temp
+      state_topic: "panasonic_heat_pump/main/Main_Outlet_Temp"
+      unit_of_measurement: "°C"
+      device_class: temperature
+      state_class: measurement
+      icon: mdi:thermometer-high
+
+    - name: "Heishamon Target Temp"
+      unique_id: heishamon_target_temp
+      state_topic: "panasonic_heat_pump/main/Main_Target_Temp"
+      unit_of_measurement: "°C"
+      device_class: temperature
+      state_class: measurement
+      icon: mdi:target
+
+    - name: "Heishamon Z1 Heat Request"
+      unique_id: heishamon_z1_heat_request
+      state_topic: "panasonic_heat_pump/main/Z1_Heat_Request_Temp"
+      unit_of_measurement: "°C"
+      device_class: temperature
+      state_class: measurement
+      icon: mdi:target
+
+    - name: "Heishamon Z1 Water Temp"
+      unique_id: heishamon_z1_water_temp
+      state_topic: "panasonic_heat_pump/main/Z1_Water_Temp"
+      unit_of_measurement: "°C"
+      device_class: temperature
+      state_class: measurement
+      icon: mdi:water-thermometer
+
+    # ── COMPRESSOR & PUMP ──────────────────────────────────────
+    - name: "Heishamon Compressor Freq"
+      unique_id: heishamon_compressor_freq
+      state_topic: "panasonic_heat_pump/main/Compressor_Freq"
+      unit_of_measurement: "Hz"
+      state_class: measurement
+      icon: mdi:sine-wave
+
+    - name: "Heishamon Pump Flow"
+      unique_id: heishamon_pump_flow
+      state_topic: "panasonic_heat_pump/main/Pump_Flow"
+      unit_of_measurement: "l/min"
+      state_class: measurement
+      icon: mdi:water-pump
+
+    - name: "Heishamon Pump Speed"
+      unique_id: heishamon_pump_speed
+      state_topic: "panasonic_heat_pump/main/Pump_Speed"
+      unit_of_measurement: "RPM"
+      state_class: measurement
+      icon: mdi:speedometer
+
+    - name: "Heishamon Max Pump Duty"
+      unique_id: heishamon_max_pump_duty
+      state_topic: "panasonic_heat_pump/main/Max_Pump_Duty"
+      state_class: measurement
+      icon: mdi:pump
+
+    - name: "Heishamon 3way Valve"
+      unique_id: heishamon_3way_valve
+      state_topic: "panasonic_heat_pump/main/ThreeWay_Valve_State"
+      icon: mdi:valve
+
+    # ── POWER ──────────────────────────────────────────────────
+    - name: "Heishamon Heat Power Produced"
+      unique_id: heishamon_heat_power_produced
+      state_topic: "panasonic_heat_pump/main/Heat_Power_Production"
+      unit_of_measurement: "W"
+      device_class: power
+      state_class: measurement
+      icon: mdi:radiator
+
+    - name: "Heishamon Heat Power Consumed"
+      unique_id: heishamon_heat_power_consumed
+      state_topic: "panasonic_heat_pump/main/Heat_Power_Consumption"
+      unit_of_measurement: "W"
+      device_class: power
+      state_class: measurement
+      icon: mdi:lightning-bolt
+
+    # ── OPERATIONAL COUNTERS ───────────────────────────────────
+    - name: "Heishamon Operating Hours"
+      unique_id: heishamon_operating_hours
+      state_topic: "panasonic_heat_pump/main/Operations_Hours"
+      unit_of_measurement: "h"
+      state_class: total_increasing
+      icon: mdi:clock-outline
+
+    - name: "Heishamon Start Stop Counter"
+      unique_id: heishamon_start_stop_counter
+      state_topic: "panasonic_heat_pump/main/Operations_Counter"
+      state_class: total_increasing
+      icon: mdi:counter
+
+    - name: "Heishamon Last Error"
+      unique_id: heishamon_last_error
+      state_topic: "panasonic_heat_pump/main/Error"
+      icon: mdi:alert-circle-outline
+
+    # ── FAN SPEEDS ─────────────────────────────────────────────
+    - name: "Heishamon Fan1 Speed"
+      unique_id: heishamon_fan1_speed
+      state_topic: "panasonic_heat_pump/main/Fan1_Motor_Speed"
+      unit_of_measurement: "RPM"
+      state_class: measurement
+      icon: mdi:fan
+
+    - name: "Heishamon Fan2 Speed"
+      unique_id: heishamon_fan2_speed
+      state_topic: "panasonic_heat_pump/main/Fan2_Motor_Speed"
+      unit_of_measurement: "RPM"
+      state_class: measurement
+      icon: mdi:fan
+
+    - name: "Heishamon Compressor Current"
+      unique_id: heishamon_compressor_current
+      state_topic: "panasonic_heat_pump/main/Compressor_Current"
+      unit_of_measurement: "A"
+      device_class: current
+      state_class: measurement
+      icon: mdi:current-ac
+
+    # ── HP CONFIGURATION SETTINGS (Prerequisites Check) ────────
+    - name: "Heishamon Heating Mode"
+      unique_id: heishamon_heating_mode
+      state_topic: "panasonic_heat_pump/main/Heating_Mode"
+      # 0 = Compensation Curve (rules won't work correctly)
+      # 1 = Direct             (required for rules)
+      icon: mdi:thermometer-check
+
+    - name: "Heishamon Z1 Sensor Settings"
+      unique_id: heishamon_z1_sensor_settings
+      state_topic: "panasonic_heat_pump/main/Z1_Sensor_Settings"
+      # 0 = Water sensor (required for direct temp control)
+      # 1 = External thermostat
+      # 2 = Internal thermostat / thermistor
+      icon: mdi:water-thermometer
+
+    - name: "Heishamon Pump Flowrate Mode"
+      unique_id: heishamon_pump_flowrate_mode
+      state_topic: "panasonic_heat_pump/main/Pump_Flowrate_Mode"
+      # 0 = DeltaT (recommended for pump duty control)
+      # 1 = Maximum flow (J-series only)
+      icon: mdi:pump
+
+    # ── OPENTHERM ECHO (RTC round-trip confirmation) ───────────
+    # HA publishes to opentherm/read/ topics via the RTC automation.
+    # HeishaMon echoes back on opentherm/write/ topics — these sensors
+    # confirm that the round-trip worked.
+    - name: "Heishamon Room Temp"
+      unique_id: heishamon_room_temp
+      state_topic: "panasonic_heat_pump/opentherm/write/roomTemp"
+      unit_of_measurement: "°C"
+      device_class: temperature
+      state_class: measurement
+      icon: mdi:home-thermometer
+
+    - name: "Heishamon Room Setpoint Received"
+      unique_id: heishamon_room_setpoint_received
+      state_topic: "panasonic_heat_pump/opentherm/write/roomTempSet"
+      unit_of_measurement: "°C"
+      device_class: temperature
+      state_class: measurement
+      icon: mdi:home-thermometer-outline
+
+
+# ============================================================
+# SECTION 2 — TEMPLATE SENSORS
+# ============================================================
+
+template:
+  - sensor:
+
+      # ── WAR CURVE SETPOINT ────────────────────────────────────────────────
+      # Piecewise weather compensation curve driven by input_number helpers.
+      # Tune the curve from the Settings tab — no YAML editing required.
+      # Default control points: cold (−7→40), mid (5→33), warm (15→28).
+      # ─────────────────────────────────────────────────────────────────────
+      - name: "Heishamon WAR Setpoint"
+        unique_id: heishamon_war_setpoint
+        unit_of_measurement: "°C"
+        device_class: temperature
+        state_class: measurement
+        icon: mdi:chart-bell-curve
+        state: >
+          {% set t = states('sensor.heishamon_outside_temp') | float(999) %}
+          {% set ol = states('input_number.heishamon_war_outdoor_low') | float(-7) %}
+          {% set om = states('input_number.heishamon_war_outdoor_mid') | float(5) %}
+          {% set oh = states('input_number.heishamon_war_outdoor_high') | float(15) %}
+          {% set tl = states('input_number.heishamon_war_target_low') | float(40) %}
+          {% set tm = states('input_number.heishamon_war_target_mid') | float(33) %}
+          {% set th = states('input_number.heishamon_war_target_high') | float(28) %}
+          {% set min_sp = states('input_number.heishamon_war_min_setpoint') | float(20) %}
+          {% set max_sp = states('input_number.heishamon_war_max_setpoint') | float(42) %}
+          {% if t == 999 %}
+            unavailable
+          {% elif t <= ol %}
+            {{ [tl | int, min_sp | int] | max }}
+          {% elif t >= oh %}
+            {{ [th | int, min_sp | int] | max }}
+          {% elif t <= om %}
+            {% set slope = (tl - tm) / (om - ol) %}
+            {{ [[[((tm + (om - t) * slope) | float | ceil), min_sp | int] | max, max_sp | int] | min, min_sp | int] | max }}
+          {% else %}
+            {% set slope = (tm - th) / (oh - om) %}
+            {{ [[[((th + (oh - t) * slope) | float | ceil), min_sp | int] | max, max_sp | int] | min, min_sp | int] | max }}
+          {% endif %}
+        availability: >
+          {{ states('sensor.heishamon_outside_temp') not in ['unknown', 'unavailable'] }}
+
+      # ── NET SHIFT ────────────────────────────────────────────────────────
+      - name: "Heishamon Net Shift"
+        unique_id: heishamon_net_shift
+        unit_of_measurement: "°C"
+        state_class: measurement
+        icon: mdi:delta
+        state: >
+          {% set actual = states('sensor.heishamon_z1_heat_request') | float(-999) %}
+          {% set war = states('sensor.heishamon_war_setpoint') | float(-999) %}
+          {% if actual == -999 or war == -999 %}
+            unavailable
+          {% else %}
+            {{ (actual - war) | round(1) }}
+          {% endif %}
+        availability: >
+          {{ states('sensor.heishamon_z1_heat_request') not in ['unknown', 'unavailable']
+             and states('sensor.heishamon_war_setpoint') not in ['unknown', 'unavailable'] }}
+
+      # ── RTC DELTA ────────────────────────────────────────────────────────
+      - name: "Heishamon RTC Delta"
+        unique_id: heishamon_rtc_delta
+        unit_of_measurement: "°C"
+        state_class: measurement
+        icon: mdi:delta
+        state: >
+          {% set room = states('sensor.heishamon_room_temp') | float(-999) %}
+          {% set setp = states('sensor.heishamon_room_setpoint_received') | float(-999) %}
+          {% if room == -999 or setp == -999 %}
+            unavailable
+          {% else %}
+            {{ (room - setp) | round(2) }}
+          {% endif %}
+        availability: >
+          {{ states('sensor.heishamon_room_temp') not in ['unknown', 'unavailable']
+             and states('sensor.heishamon_room_setpoint_received') not in ['unknown', 'unavailable'] }}
+
+      # ── RTC CORRECTION STEP ───────────────────────────────────────────────
+      - name: "Heishamon RTC Correction"
+        unique_id: heishamon_rtc_correction
+        unit_of_measurement: "°C"
+        state_class: measurement
+        icon: mdi:thermometer-plus-outline
+        state: >
+          {% set d = states('sensor.heishamon_rtc_delta') | float(-999) %}
+          {% if d == -999 %}
+            0
+          {% elif d > 1.5 %}
+            -3
+          {% elif d > 1.0 %}
+            -2
+          {% elif d > 0.5 %}
+            -1
+          {% elif d >= -0.2 %}
+            0
+          {% elif d >= -0.4 %}
+            1
+          {% elif d >= -0.6 %}
+            2
+          {% elif d >= -2.0 %}
+            3
+          {% else %}
+            4
+          {% endif %}
+
+      # ── COMPRESSOR RUN SECONDS ────────────────────────────────────────────
+      - name: "Heishamon Compressor Run Seconds"
+        unique_id: heishamon_compressor_run_seconds
+        unit_of_measurement: "s"
+        state_class: measurement
+        icon: mdi:timer-outline
+        state: >
+          {% set freq = states('sensor.heishamon_compressor_freq') | float(0) %}
+          {% if freq <= 10 %}
+            0
+          {% else %}
+            {% set start = states('input_datetime.heishamon_compressor_start_time') %}
+            {% if start in ['unknown', 'unavailable', 'none'] %}
+              0
+            {% else %}
+              {% set elapsed = (now() - strptime(start, '%Y-%m-%d %H:%M:%S')).total_seconds() | int(0) %}
+              {{ [elapsed, 0] | max }}
+            {% endif %}
+          {% endif %}
+
+      # ── SOFT-START SHIFT ─────────────────────────────────────────────────
+      # Ramp duration and max shift are configurable from the Settings tab.
+      # ─────────────────────────────────────────────────────────────────────
+      - name: "Heishamon Soft-Start Shift"
+        unique_id: heishamon_softstart_shift
+        unit_of_measurement: "°C"
+        state_class: measurement
+        icon: mdi:thermometer-chevron-down
+        state: >
+          {% set t = states('sensor.heishamon_compressor_run_seconds') | float(0) %}
+          {% set duration = states('input_number.heishamon_softstart_duration') | float(780) %}
+          {% set max_shift = states('input_number.heishamon_softstart_max_shift') | float(5) %}
+          {% set outdoor = states('sensor.heishamon_outside_temp') | float(99) %}
+          {% set outdoor_max = states('input_number.heishamon_softstart_outdoor_max') | float(8) %}
+          {% if outdoor > outdoor_max or t <= 0 or t >= duration %}
+            0
+          {% else %}
+            {% set raw = (max_shift * ((t / duration) ** 0.5 - 1)) | float %}
+            {{ [[raw | int, (max_shift | int * -1)] | max, 0] | min }}
+          {% endif %}
+
+      # ── SOFT-START PROGRESS ───────────────────────────────────────────────
+      - name: "Heishamon Soft-Start Progress"
+        unique_id: heishamon_softstart_progress
+        unit_of_measurement: "%"
+        state_class: measurement
+        icon: mdi:progress-clock
+        state: >
+          {% set t = states('sensor.heishamon_compressor_run_seconds') | float(0) %}
+          {% set duration = states('input_number.heishamon_softstart_duration') | float(780) %}
+          {% set outdoor = states('sensor.heishamon_outside_temp') | float(99) %}
+          {% set outdoor_max = states('input_number.heishamon_softstart_outdoor_max') | float(8) %}
+          {% if outdoor > outdoor_max %}
+            100
+          {% else %}
+            {{ [(t / duration * 100) | int, 100] | min }}
+          {% endif %}
+
+      # ── HEAT COP ─────────────────────────────────────────────────────────
+      - name: "Heishamon Heat COP"
+        unique_id: heishamon_heat_cop
+        state_class: measurement
+        icon: mdi:fire
+        availability: >
+          {{ states('sensor.heishamon_heat_power_consumed') not in ['unknown', 'unavailable'] }}
+        state: >
+          {% set produced = states('sensor.heishamon_heat_power_produced') | float(0) %}
+          {% set consumed = states('sensor.heishamon_heat_power_consumed') | float(0) %}
+          {% if consumed > 50 %}
+            {{ (produced / consumed) | round(2) }}
+          {% else %}
+            unavailable
+          {% endif %}
+
+
+# ============================================================
+# SECTION 3 — INPUT_SELECT HELPERS
+# ============================================================
+
+input_select:
+
+  # Quiet mode selector — controls fan/compressor noise level.
+  heishamon_quiet_mode:
+    name: "Quiet Mode"
+    options:
+      - "Off"
+      - "Level 1 (less power)"
+      - "Level 2 (even less power)"
+      - "Level 3 (least power)"
+    icon: mdi:volume-off
+    initial: "Off"
+
+  # Operation mode selector — controls what the HP is doing.
+  heishamon_operation_mode:
+    name: "Operation Mode"
+    options:
+      - "Heat only"
+      - "Cool only"
+      - "Auto"
+      - "DHW only"
+      - "Heat+DHW"
+      - "Cool+DHW"
+      - "Auto+DHW"
+    icon: mdi:heat-pump
+    initial: "Heat+DHW"
+
+
+# ============================================================
+# SECTION 4 — INPUT_NUMBER HELPERS
+# ============================================================
+
+input_number:
+
+  # ── ROOM TEMPERATURE CONTROL ──────────────────────────────────
+  heishamon_room_setpoint_target:
+    name: "Room Setpoint (RTC)"
+    min: 15
+    max: 25
+    step: 0.5
+    unit_of_measurement: "°C"
+    icon: mdi:home-thermometer-outline
+    initial: 21
+
+  # ── DOMESTIC HOT WATER ────────────────────────────────────────
+  heishamon_dhw_temp:
+    name: "DHW Target Temperature"
+    min: 40
+    max: 75
+    step: 1
+    unit_of_measurement: "°C"
+    icon: mdi:water-thermometer
+    initial: 52
+
+  # ── WAR CURVE PARAMETERS ─────────────────────────────────────
+  # Three control points: (outdoor_low → target_low), (outdoor_mid → target_mid), (outdoor_high → target_high)
+  # Defaults match the Node-RED calibration: cold (-7→40), mid (5→33), warm (15→28)
+  heishamon_war_outdoor_low:
+    name: "WAR Outdoor Low (°C)"
+    min: -15
+    max: 0
+    step: 0.5
+    unit_of_measurement: "°C"
+    icon: mdi:thermometer-low
+    initial: -7
+
+  heishamon_war_outdoor_mid:
+    name: "WAR Outdoor Mid (°C)"
+    min: 0
+    max: 10
+    step: 0.5
+    unit_of_measurement: "°C"
+    icon: mdi:thermometer
+    initial: 5
+
+  heishamon_war_outdoor_high:
+    name: "WAR Outdoor High (°C)"
+    min: 10
+    max: 25
+    step: 0.5
+    unit_of_measurement: "°C"
+    icon: mdi:thermometer-high
+    initial: 15
+
+  heishamon_war_target_low:
+    name: "WAR Target Low (°C)"
+    min: 30
+    max: 45
+    step: 0.5
+    unit_of_measurement: "°C"
+    icon: mdi:thermometer-water
+    initial: 40
+
+  heishamon_war_target_mid:
+    name: "WAR Target Mid (°C)"
+    min: 25
+    max: 42
+    step: 0.5
+    unit_of_measurement: "°C"
+    icon: mdi:thermometer-water
+    initial: 33
+
+  heishamon_war_target_high:
+    name: "WAR Target High (°C)"
+    min: 20
+    max: 38
+    step: 0.5
+    unit_of_measurement: "°C"
+    icon: mdi:thermometer-water
+    initial: 28
+
+  heishamon_war_min_setpoint:
+    name: "WAR Min Setpoint (°C)"
+    min: 15
+    max: 30
+    step: 0.5
+    unit_of_measurement: "°C"
+    icon: mdi:arrow-down-bold
+    initial: 20
+
+  heishamon_war_max_setpoint:
+    name: "WAR Max Setpoint (°C)"
+    min: 35
+    max: 55
+    step: 0.5
+    unit_of_measurement: "°C"
+    icon: mdi:arrow-up-bold
+    initial: 42
+
+  # ── SOFT-START PARAMETERS ─────────────────────────────────────
+  heishamon_softstart_duration:
+    name: "Soft-Start Duration (s)"
+    min: 120
+    max: 1800
+    step: 60
+    unit_of_measurement: "s"
+    icon: mdi:timer-outline
+    initial: 780
+
+  heishamon_softstart_max_shift:
+    name: "Soft-Start Max Shift (°C)"
+    min: 1
+    max: 10
+    step: 0.5
+    unit_of_measurement: "°C"
+    icon: mdi:thermometer-plus-outline
+    initial: 5
+
+  heishamon_softstart_outdoor_max:
+    name: "Soft-Start Outdoor Max (°C)"
+    min: 0
+    max: 15
+    step: 0.5
+    unit_of_measurement: "°C"
+    icon: mdi:thermometer-chevron-up
+    initial: 8
+
+
+# ============================================================
+# SECTION 5 — INPUT_DATETIME HELPERS
+# ============================================================
+
+input_datetime:
+
+  # Timestamp of when the compressor last started.
+  # Set automatically by the "HeishaMon: Track compressor start time"
+  # automation below when compressor frequency rises above 10 Hz.
+  heishamon_compressor_start_time:
+    name: "Heishamon Compressor Start Time"
+    has_date: true
+    has_time: true
+
+
+# ============================================================
+# SECTION 6 — AUTOMATIONS
+# ============================================================
+
+automation:
+
+  # ============================================================
+  # ⚠️ SETUP REQUIRED — replace the room temperature sensor below
+  # Search for REPLACE_WITH_YOUR_ROOM_SENSOR and change it to
+  # your actual room temperature entity_id, e.g.:
+  #   sensor.living_room_temperature
+  #   sensor.my_thermostat_temperature
+  #   sensor.zigbee_room_sensor_temperature
+  # Find your sensor via: Developer Tools → States → search for temp
+  # ============================================================
+
+  # ── AUTOMATION A — Room Temperature Sync (RTC Keepalive) ──────────────
+  - alias: "HeishaMon: Sync room temperature to RTC"
+    id: heishamon_sync_room_temperature_rtc
+    description: >
+      Publishes the current room temperature and setpoint to HeishaMon
+      via MQTT for Room Temperature Control (RTC). Triggers on sensor
+      change, setpoint change, and every 5 minutes as a keepalive.
+    mode: single
+    max_exceeded: silent
+
+    trigger:
+      # Trigger immediately when room temperature changes
+      - platform: state
+        entity_id: sensor.REPLACE_WITH_YOUR_ROOM_SENSOR  # <-- REPLACE THIS
+
+      # Trigger when the setpoint slider changes
+      - platform: state
+        entity_id: input_number.heishamon_room_setpoint_target
+
+      # Keepalive: re-publish every 5 minutes to survive restarts / MQTT reconnects
+      - platform: time_pattern
+        minutes: "/5"
+
+    action:
+      # Publish current room temperature to HeishaMon
+      - service: mqtt.publish
+        data:
+          topic: "panasonic_heat_pump/opentherm/read/roomTemp"
+          retain: true
+          payload: >
+            {{ states('sensor.REPLACE_WITH_YOUR_ROOM_SENSOR') | float(0) | round(1) }}
+            # <-- REPLACE sensor.REPLACE_WITH_YOUR_ROOM_SENSOR above
+
+      # Publish room temperature setpoint to HeishaMon
+      - service: mqtt.publish
+        data:
+          topic: "panasonic_heat_pump/opentherm/read/roomTempSet"
+          retain: true
+          payload: >
+            {{ states('input_number.heishamon_room_setpoint_target') | float(21) | round(1) }}
+
+  # ── AUTOMATION B — Compressor Start Time Tracker ──────────────────────
+  - alias: "HeishaMon: Track compressor start time"
+    id: heishamon_track_compressor_start_time
+    description: >
+      Records the timestamp when the compressor starts (frequency > 10 Hz).
+      Used by the soft-start template sensors to compute elapsed runtime
+      and the current soft-start shift value.
+    mode: single
+    max_exceeded: silent
+
+    trigger:
+      # Fires when compressor frequency crosses above 10 Hz (startup)
+      - platform: numeric_state
+        entity_id: sensor.heishamon_compressor_freq
+        above: 10
+        # Optional: add `for: "00:00:10"` to debounce brief spikes
+
+    condition:
+      # Only record if compressor is genuinely running (not a transient spike)
+      - condition: numeric_state
+        entity_id: sensor.heishamon_compressor_freq
+        above: 10
+
+    action:
+      # Store the current timestamp as the compressor start time
+      - service: input_datetime.set_datetime
+        entity_id: input_datetime.heishamon_compressor_start_time
+        data:
+          datetime: "{{ now().strftime('%Y-%m-%d %H:%M:%S') }}"
+
+  # ── AUTOMATION C — Quiet Mode Sync ────────────────────────────────────
+  - alias: "HeishaMon: Set Quiet Mode"
+    description: "Publishes quiet mode setting to HeishaMon via MQTT"
+    trigger:
+      - platform: state
+        entity_id: input_select.heishamon_quiet_mode
+    action:
+      - service: mqtt.publish
+        data:
+          topic: "panasonic_heat_pump/commands/SetQuietMode"
+          payload: >
+            {% set mode_map = {
+              'Off': '0',
+              'Level 1 (less power)': '1',
+              'Level 2 (even less power)': '2',
+              'Level 3 (least power)': '3'
+            } %}
+            {{ mode_map[trigger.to_state.state] | default('0') }}
+
+  # ── AUTOMATION D — Operation Mode Sync ────────────────────────────────
+  - alias: "HeishaMon: Set Operation Mode"
+    description: "Publishes operation mode to HeishaMon via MQTT"
+    trigger:
+      - platform: state
+        entity_id: input_select.heishamon_operation_mode
+    action:
+      - service: mqtt.publish
+        data:
+          topic: "panasonic_heat_pump/commands/SetOperationMode"
+          payload: >
+            {% set mode_map = {
+              'Heat only': '0',
+              'Cool only': '1',
+              'Auto': '2',
+              'DHW only': '3',
+              'Heat+DHW': '4',
+              'Cool+DHW': '5',
+              'Auto+DHW': '6'
+            } %}
+            {{ mode_map[trigger.to_state.state] | default('4') }}
+
+  # ── AUTOMATION E — DHW Temperature Sync ───────────────────────────────
+  - alias: "HeishaMon: Set DHW Temperature"
+    description: "Publishes DHW target temperature to HeishaMon via MQTT"
+    trigger:
+      - platform: state
+        entity_id: input_number.heishamon_dhw_temp
+    action:
+      - service: mqtt.publish
+        data:
+          topic: "panasonic_heat_pump/commands/SetDHWTemp"
+          payload: "{{ trigger.to_state.state | int }}"

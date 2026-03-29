@@ -288,15 +288,9 @@ template:
   - sensor:
 
       # ── WAR CURVE SETPOINT ────────────────────────────────────────────────
-      # Replicates the piecewise weather compensation curve from the rules:
-      #   Cold point:  outdoor −7°C → water 40°C
-      #   Mid point:   outdoor  5°C → water 33°C
-      #   Warm point:  outdoor 15°C → water 28°C
-      #   Below −7°C: clamp to 40. Above 15°C: clamp to 28.
-      #   Min setpoint: 20°C, Max: 42°C.
-      #
-      # Segment 1 (−7 to 5°C):  ceil(33 + (5 − outdoor) × 7/12)
-      # Segment 2 (5 to 15°C):  ceil(28 + (15 − outdoor) × 5/10)
+      # Piecewise weather compensation curve driven by input_number helpers.
+      # Tune the curve from the Settings tab — no YAML editing required.
+      # Default control points: cold (−7→40), mid (5→33), warm (15→28).
       # ─────────────────────────────────────────────────────────────────────
       - name: "Heishamon WAR Setpoint"
         unique_id: heishamon_war_setpoint
@@ -306,16 +300,26 @@ template:
         icon: mdi:chart-bell-curve
         state: >
           {% set t = states('sensor.heishamon_outside_temp') | float(999) %}
+          {% set ol = states('input_number.heishamon_war_outdoor_low') | float(-7) %}
+          {% set om = states('input_number.heishamon_war_outdoor_mid') | float(5) %}
+          {% set oh = states('input_number.heishamon_war_outdoor_high') | float(15) %}
+          {% set tl = states('input_number.heishamon_war_target_low') | float(40) %}
+          {% set tm = states('input_number.heishamon_war_target_mid') | float(33) %}
+          {% set th = states('input_number.heishamon_war_target_high') | float(28) %}
+          {% set min_sp = states('input_number.heishamon_war_min_setpoint') | float(20) %}
+          {% set max_sp = states('input_number.heishamon_war_max_setpoint') | float(42) %}
           {% if t == 999 %}
             unavailable
-          {% elif t <= -7 %}
-            40
-          {% elif t >= 15 %}
-            28
-          {% elif t <= 5 %}
-            {{ [[((33 + (5 - t) * 7 / 12) | float | ceil), 20] | max, 42] | min }}
+          {% elif t <= ol %}
+            {{ [tl | int, min_sp | int] | max }}
+          {% elif t >= oh %}
+            {{ [th | int, min_sp | int] | max }}
+          {% elif t <= om %}
+            {% set slope = (tl - tm) / (om - ol) %}
+            {{ [[[((tm + (om - t) * slope) | float | ceil), min_sp | int] | max, max_sp | int] | min, min_sp | int] | max }}
           {% else %}
-            {{ [[((28 + (15 - t) * 5 / 10) | float | ceil), 20] | max, 42] | min }}
+            {% set slope = (tm - th) / (oh - om) %}
+            {{ [[[((th + (oh - t) * slope) | float | ceil), min_sp | int] | max, max_sp | int] | min, min_sp | int] | max }}
           {% endif %}
         availability: >
           {{ states('sensor.heishamon_outside_temp') not in ['unknown', 'unavailable'] }}
@@ -429,16 +433,8 @@ template:
           {% endif %}
 
       # ── SOFT-START SHIFT ─────────────────────────────────────────────────
-      # Replicates HeishaMon soft-start formula:
-      #   shift = floor(5 × (sqrt(elapsed/780) − 1)), clamped to [−5, 0]
-      #
-      # Only active when:
-      #   - outdoor temp ≤ 8°C (cold enough to matter)
-      #   - compressor has been running > 0 seconds
-      #   - ramp not yet complete (elapsed < 780s)
-      #
-      # At t=0:   shift = floor(5 × (0 − 1)) = −5 (max boost)
-      # At t=780: shift = floor(5 × (1 − 1)) =  0 (ramp complete)
+      # Ramp duration and max shift are configurable from the Settings tab.
+      # Only active when outdoor temp ≤ outdoor_max and compressor is running.
       # ─────────────────────────────────────────────────────────────────────
       - name: "Heishamon Soft-Start Shift"
         unique_id: heishamon_softstart_shift
@@ -447,19 +443,20 @@ template:
         icon: mdi:thermometer-chevron-down
         state: >
           {% set t = states('sensor.heishamon_compressor_run_seconds') | float(0) %}
-          {% set duration = 780 %}
-          {% set max_shift = 5 %}
+          {% set duration = states('input_number.heishamon_softstart_duration') | float(780) %}
+          {% set max_shift = states('input_number.heishamon_softstart_max_shift') | float(5) %}
           {% set outdoor = states('sensor.heishamon_outside_temp') | float(99) %}
-          {% if outdoor > 8 or t <= 0 or t >= duration %}
+          {% set outdoor_max = states('input_number.heishamon_softstart_outdoor_max') | float(8) %}
+          {% if outdoor > outdoor_max or t <= 0 or t >= duration %}
             0
           {% else %}
             {% set raw = (max_shift * ((t / duration) ** 0.5 - 1)) | float %}
-            {{ [[raw | int, -max_shift] | max, 0] | min }}
+            {{ [[raw | int, (max_shift | int * -1)] | max, 0] | min }}
           {% endif %}
 
       # ── SOFT-START PROGRESS ───────────────────────────────────────────────
-      # Percentage through the 780-second soft-start ramp (0–100%).
-      # Returns 100 when outdoor temp > 8°C (inactive) or ramp complete.
+      # Percentage through the soft-start ramp (0–100%).
+      # Returns 100 when outdoor temp > outdoor_max (inactive) or ramp complete.
       # ─────────────────────────────────────────────────────────────────────
       - name: "Heishamon Soft-Start Progress"
         unique_id: heishamon_softstart_progress
@@ -468,11 +465,13 @@ template:
         icon: mdi:progress-clock
         state: >
           {% set t = states('sensor.heishamon_compressor_run_seconds') | float(0) %}
+          {% set duration = states('input_number.heishamon_softstart_duration') | float(780) %}
           {% set outdoor = states('sensor.heishamon_outside_temp') | float(99) %}
-          {% if outdoor > 8 %}
+          {% set outdoor_max = states('input_number.heishamon_softstart_outdoor_max') | float(8) %}
+          {% if outdoor > outdoor_max %}
             100
           {% else %}
-            {{ [(t / 780 * 100) | int, 100] | min }}
+            {{ [(t / duration * 100) | int, 100] | min }}
           {% endif %}
 
       # ── HEAT COP ─────────────────────────────────────────────────────────

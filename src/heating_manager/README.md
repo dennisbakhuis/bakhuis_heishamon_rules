@@ -28,7 +28,9 @@ Breaks down the setpoint calculation into components:
 ### ⚙️ Settings
 Controls and diagnostics:
 - **Room setpoint slider** — sets the RTC target temperature (15–25°C). Automatically published to HeishaMon via MQTT.
-- **HP direct controls** — quiet mode, heat mode, Z1 heat shift, DHW target temperature.
+- **WAR curve parameters** — tune the three control points (cold/mid/warm outdoor→water targets) and setpoint limits. Changes take effect immediately.
+- **Soft-start parameters** — configure ramp duration, max shift, and outdoor temperature threshold.
+- **HP direct controls** — quiet mode, operation mode, DHW target temperature.
 - **Feature status** — read-only table of HeishaMon rule features and where to configure them.
 - **MQTT diagnostics** — last-updated timestamps for key sensors, and instructions for verifying MQTT connectivity.
 
@@ -69,145 +71,110 @@ All controls are **self-contained** — no external HA integration required.
 
 ---
 
-### Step 1 — Add MQTT Switch and Sensors
+### Quick Install (recommended)
 
-Open `sensors.yaml`. It contains the full MQTT configuration needed by the Heating Manager:
-- The HP master on/off **switch** (`switch.heishamon_heatpump`)
-- All **sensor** topics published by HeishaMon
-- The **OpenTherm echo sensors** for room temperature RTC
+The easiest way to install is using the single package file — one copy, one line in `configuration.yaml`, done.
 
-Uncomment the `mqtt:` block and paste it into your `configuration.yaml` under the `mqtt:` key:
-
-```yaml
-mqtt:
-  switch:
-    - name: "Heishamon Heat Pump"
-      unique_id: heishamon_heatpump
-      state_topic: "panasonic_heat_pump/main/Heatpump_State"
-      command_topic: "panasonic_heat_pump/commands/SetHeatpump"
-      payload_on: "1"
-      payload_off: "0"
-      state_on: "1"
-      state_off: "0"
-      icon: mdi:heat-pump
-
-  sensor:
-    - name: "Heishamon Outside Temp"
-      unique_id: heishamon_outside_temp
-      state_topic: "panasonic_heat_pump/main/Outside_Temp"
-      unit_of_measurement: "°C"
-      device_class: temperature
-      state_class: measurement
-    # ... (continue with all sensors from sensors.yaml)
+**Step 1 — Create the packages directory:**
+```bash
+mkdir -p /config/packages
 ```
 
-If you already have an `mqtt:` key, merge the `switch:` and `sensor:` lists into your existing block.
+**Step 2 — Copy the package file:**
+```bash
+cp src/heating_manager/heating_manager_package.yaml /config/packages/
+```
 
-**To use a different MQTT base topic:** replace `panasonic_heat_pump` in every `state_topic` / `command_topic` in `sensors.yaml`. See `topics.yaml` for the full topic reference.
+**Step 3 — Add to `configuration.yaml`:**
+```yaml
+homeassistant:
+  packages:
+    heating_manager: !include packages/heating_manager_package.yaml
+```
+If you already have a `homeassistant:` block, just add the `packages:` key under it.
+
+**Step 4 — Set your room temperature sensor:**
+Open `heating_manager_package.yaml` and find `REPLACE_WITH_YOUR_ROOM_SENSOR`.
+Replace it with your actual room temperature entity ID (e.g. `sensor.living_room_temperature`).
+Find your sensor via HA → Developer Tools → States → search for your room temp.
+Skip this step if you are not using RTC.
+
+**Step 5 — Restart Home Assistant.**
+
+**Step 6 — Import the dashboard:**
+1. Go to Settings → Dashboards → Add Dashboard → Create new → Edit (pencil icon)
+2. Switch to YAML mode → paste the contents of `dashboard.yaml`
+3. Save and close
+
+**Step 7 — Configure settings from the dashboard:**
+Open the Settings tab to tune WAR curve parameters, soft-start settings, operation mode,
+quiet mode, and DHW temperature — all from the UI. No YAML editing needed.
 
 ---
 
-### Step 2 — Add Input Helpers
+### Alternative: Manual Install
+
+If you prefer to merge each section into your existing `configuration.yaml` manually:
+
+**Step 1 — Add MQTT Switch and Sensors**
+
+Open `sensors.yaml`. Uncomment the `mqtt:` block and paste it into your `configuration.yaml`
+under the `mqtt:` key. If you already have an `mqtt:` key, merge the `switch:` and `sensor:`
+lists into your existing block.
+
+**To use a different MQTT base topic:** replace `panasonic_heat_pump` in every `state_topic` /
+`command_topic` in `sensors.yaml`. See `topics.yaml` for the full topic reference.
+
+---
+
+**Step 2 — Add Input Helpers**
 
 Open `helpers.yaml` and paste the contents into your `configuration.yaml`. This adds:
 
-- `input_select.heishamon_quiet_mode` — quiet mode dropdown (Off / Level 1–3)
-- `input_select.heishamon_operation_mode` — operation mode dropdown (Heat only, DHW only, Heat+DHW, etc.)
+- `input_select.heishamon_quiet_mode` — quiet mode dropdown
+- `input_select.heishamon_operation_mode` — operation mode dropdown
 - `input_number.heishamon_room_setpoint_target` — room temperature target for RTC
-- `input_number.heishamon_dhw_temp` — DHW tank target temperature (40–75°C)
-- `input_datetime.heishamon_compressor_start_time` — compressor start timestamp for soft-start tracking
+- `input_number.heishamon_dhw_temp` — DHW tank target temperature
+- `input_number.heishamon_war_*` — WAR curve control points (9 helpers)
+- `input_number.heishamon_softstart_*` — soft-start parameters (3 helpers)
+- `input_datetime.heishamon_compressor_start_time` — compressor start timestamp
 
-```yaml
-# In configuration.yaml:
-
-input_select:
-  heishamon_quiet_mode:
-    name: "Quiet Mode"
-    options: ["Off", "Level 1 (less power)", "Level 2 (even less power)", "Level 3 (least power)"]
-    icon: mdi:volume-off
-    initial: "Off"
-
-  heishamon_operation_mode:
-    name: "Operation Mode"
-    options: ["Heat only", "Cool only", "Auto", "DHW only", "Heat+DHW", "Cool+DHW", "Auto+DHW"]
-    icon: mdi:heat-pump
-    initial: "Heat+DHW"
-
-input_number:
-  heishamon_room_setpoint_target:
-    name: "Room Setpoint (RTC)"
-    min: 15
-    max: 25
-    step: 0.5
-    unit_of_measurement: "°C"
-    icon: mdi:home-thermometer-outline
-    initial: 21
-
-  heishamon_dhw_temp:
-    name: "DHW Target Temperature"
-    min: 40
-    max: 75
-    step: 1
-    unit_of_measurement: "°C"
-    icon: mdi:water-thermometer
-    initial: 52
-
-input_datetime:
-  heishamon_compressor_start_time:
-    name: "Heishamon Compressor Start Time"
-    has_date: true
-    has_time: true
-```
-
-If you use separate include files, paste the relevant sections into `input_select.yaml`, `input_number.yaml`, and `input_datetime.yaml` respectively.
+If you use separate include files, paste the relevant sections into `input_select.yaml`,
+`input_number.yaml`, and `input_datetime.yaml` respectively.
 
 ---
 
-### Step 3 — Add Template Sensors
+**Step 3 — Add Template Sensors**
 
-Open `sensors.yaml`. The `template:` block contains all the computed sensors for the Analysis tab (WAR setpoint, RTC delta, soft-start, heat COP, etc.).
+Paste the `template:` block from `sensors.yaml` into your `configuration.yaml`. If you already
+have a `template:` key, merge the `- sensor:` list into your existing one.
 
-Paste the `template:` block into your `configuration.yaml`. If you already have a `template:` key, merge the `- sensor:` list into your existing one:
-
-```yaml
-# In configuration.yaml:
-
-template:
-  - sensor:
-      # ... paste all sensors from the template: block in sensors.yaml here ...
-```
-
-> **Important:** YAML is whitespace-sensitive. Each sensor definition starts with `- name:` at 6 spaces of indentation inside `template: → - sensor:`.
+> **Important:** YAML is whitespace-sensitive. Each sensor definition starts with `- name:` at
+> 6 spaces of indentation inside `template: → - sensor:`.
 
 ---
 
-### Step 4 — Add Automations
+**Step 4 — Add Automations**
 
-Open `automations.yaml`. It contains two automations.
+Open `automations.yaml`. Replace `sensor.your_room_temperature_sensor` in Automation A with the
+entity_id of your actual room temperature sensor before adding.
 
-**Before adding:** replace `sensor.your_room_temperature_sensor` in Automation A with the entity_id of your actual room temperature sensor. Find it via HA → Developer Tools → States, search for a temperature sensor in your living area.
-
-**To add via the HA UI:**
-1. Go to Settings → Automations & Scenes → Automations
-2. Click the ⋮ menu → "Import automation"
-3. Paste each automation block and save
-
-**To add via file-based config:**
-Paste both automations into your `automations.yaml` (the file HA manages, usually at `config/automations.yaml`), then reload automations via Developer Tools → YAML → Automations.
+Add via HA UI (Settings → Automations → ⋮ → Import automation) or paste into your
+`config/automations.yaml` and reload via Developer Tools → YAML → Automations.
 
 ---
 
-### Step 5 — Restart Home Assistant
+**Step 5 — Restart Home Assistant**
 
-After adding helpers, template sensors, MQTT sensors, and automations:
+After adding all config sections:
 
-1. Go to Settings → System → Restart → **Restart Home Assistant** (full restart to pick up all config changes)
+1. Go to Settings → System → Restart → **Restart Home Assistant**
 2. Wait for HA to come back up
 3. Verify there are no errors in Settings → System → Logs
 
 ---
 
-### Step 6 — Import the Dashboard
+**Step 6 — Import the Dashboard**
 
 1. Go to **Settings → Dashboards**
 2. Click **+ Add dashboard**

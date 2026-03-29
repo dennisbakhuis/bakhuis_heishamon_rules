@@ -61,46 +61,88 @@ class TestYAMLValidity:
 # =============================================================================
 
 
+EXPECTED_ENTITIES = {
+    # MQTT sensors (29)
+    "sensor.heating_manager_heatpump_state",
+    "sensor.heating_manager_operating_mode",
+    "sensor.heating_manager_defrosting_state",
+    "sensor.heating_manager_quiet_mode",
+    "sensor.heating_manager_outside_temp",
+    "sensor.heating_manager_outside_pipe_temp",
+    "sensor.heating_manager_inlet_temp",
+    "sensor.heating_manager_outlet_temp",
+    "sensor.heating_manager_target_temp",
+    "sensor.heating_manager_z1_heat_request",
+    "sensor.heating_manager_z1_water_temp",
+    "sensor.heating_manager_compressor_freq",
+    "sensor.heating_manager_pump_flow",
+    "sensor.heating_manager_pump_speed",
+    "sensor.heating_manager_max_pump_duty",
+    "sensor.heating_manager_3way_valve",
+    "sensor.heating_manager_heat_power_produced",
+    "sensor.heating_manager_heat_power_consumed",
+    "sensor.heating_manager_operating_hours",
+    "sensor.heating_manager_start_stop_counter",
+    "sensor.heating_manager_last_error",
+    "sensor.heating_manager_fan1_speed",
+    "sensor.heating_manager_fan2_speed",
+    "sensor.heating_manager_compressor_current",
+    "sensor.heating_manager_heating_mode",
+    "sensor.heating_manager_z1_sensor_settings",
+    "sensor.heating_manager_pump_flowrate_mode",
+    "sensor.heating_manager_room_temp",
+    "sensor.heating_manager_room_setpoint_received",
+    # Template sensors (8)
+    "sensor.heating_manager_war_setpoint",
+    "sensor.heating_manager_net_shift",
+    "sensor.heating_manager_rtc_delta",
+    "sensor.heating_manager_rtc_correction",
+    "sensor.heating_manager_compressor_run_seconds",
+    "sensor.heating_manager_softstart_shift",
+    "sensor.heating_manager_softstart_progress",
+    "sensor.heating_manager_heat_cop",
+    # Switch (1)
+    "switch.heating_manager_heat_pump",
+    # Numbers (13, excluding hidden compressor_start_epoch)
+    "number.heating_manager_room_setpoint_target",
+    "number.heating_manager_dhw_temp",
+    "number.heating_manager_war_outdoor_low",
+    "number.heating_manager_war_outdoor_mid",
+    "number.heating_manager_war_outdoor_high",
+    "number.heating_manager_war_target_low",
+    "number.heating_manager_war_target_mid",
+    "number.heating_manager_war_target_high",
+    "number.heating_manager_war_min_setpoint",
+    "number.heating_manager_war_max_setpoint",
+    "number.heating_manager_softstart_duration",
+    "number.heating_manager_softstart_max_shift",
+    "number.heating_manager_softstart_outdoor_max",
+    # Selects (2)
+    "select.heating_manager_quiet_mode",
+    "select.heating_manager_operation_mode",
+}
+
+
 class TestEntityConsistency:
-    """Every entity referenced in dashboard.yaml must be defined or allowlisted."""
+    """Every entity referenced in dashboard.yaml must be in EXPECTED_ENTITIES."""
 
     def test_all_dashboard_entities_are_defined(self) -> None:
         """
-        Every entity referenced in dashboard.yaml must be defined in
-        sensors.yaml or helpers.yaml.
-
-        The check filters to heishamon_* entities only, ignoring aquarea_* or
-        other non-heishamon references that may appear in the dashboard.
+        Every heating_manager_* entity referenced in dashboard.yaml must be
+        present in EXPECTED_ENTITIES.
         """
         dashboard_text = (HM_DIR / "dashboard.yaml").read_text()
-        sensors_text = (HM_DIR / "sensors.yaml").read_text()
-        helpers_text = (HM_DIR / "helpers.yaml").read_text()
 
-        # --- All entity: xyz references in dashboard ---
+        # All entity: xyz references in dashboard
         referenced = set(re.findall(r"entity:\s+([\w.]+)", dashboard_text))
 
-        # --- sensor.heishamon_* and switch.heishamon_* from unique_id in sensors.yaml ---
-        sensor_ids = set(re.findall(r"unique_id:\s+(heishamon_\w+)", sensors_text))
-        defined_sensors = {f"sensor.{uid}" for uid in sensor_ids} | {
-            f"switch.{uid}" for uid in sensor_ids
-        }
+        # Only check heating_manager_* references
+        hm_refs = {e for e in referenced if "heating_manager" in e}
 
-        # --- input_number.*, input_datetime.*, and input_select.* from helpers.yaml ---
-        # Keys at exactly 2-space indent are the helper entity names.
-        input_keys = set(re.findall(r"^  (\w+):", helpers_text, re.MULTILINE))
-        defined_helpers = (
-            {f"input_number.{k}" for k in input_keys}
-            | {f"input_datetime.{k}" for k in input_keys}
-            | {f"input_select.{k}" for k in input_keys}
+        undefined = hm_refs - EXPECTED_ENTITIES
+        assert undefined == set(), (
+            f"Entities referenced in dashboard but not in EXPECTED_ENTITIES: {undefined}"
         )
-
-        all_defined = defined_sensors | defined_helpers
-
-        # Only check heishamon_* references (skip aquarea_*, generic sensor names etc.)
-        heishamon_refs = {e for e in referenced if "heishamon" in e}
-
-        undefined = heishamon_refs - all_defined
-        assert undefined == set(), f"Entities referenced in dashboard but not defined: {undefined}"
 
 
 # =============================================================================

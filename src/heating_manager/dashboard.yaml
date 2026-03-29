@@ -50,7 +50,7 @@ views:
             title: Heat Pump Power
             show_header_toggle: false
             entities:
-              - entity: switch.heishamon_heatpump
+              - entity: switch.heating_manager_heat_pump
                 name: Heat Pump On/Off
                 icon: mdi:power
 
@@ -76,38 +76,38 @@ views:
 
               # HP on/off state
               - type: entity
-                entity: sensor.heishamon_heatpump_state
+                entity: sensor.heating_manager_heatpump_state
                 name: HP State
                 icon: mdi:power
 
               # Operating mode (Heat / DHW / Heat+DHW / etc.)
               - type: entity
-                entity: sensor.heishamon_operating_mode
+                entity: sensor.heating_manager_operating_mode
                 name: Mode
                 icon: mdi:cog-outline
 
               # Defrost state — visually stands out when active
               - type: entity
-                entity: sensor.heishamon_defrosting_state
+                entity: sensor.heating_manager_defrosting_state
                 name: Defrost
                 icon: mdi:snowflake-melt
 
               # Quiet mode level (Off / 1 / 2 / 3 / Scheduled)
               - type: entity
-                entity: sensor.heishamon_quiet_mode
+                entity: sensor.heating_manager_quiet_mode
                 name: Quiet Mode
                 icon: mdi:volume-off
 
               # Compressor frequency — proxy for how hard the HP is working
               - type: entity
-                entity: sensor.heishamon_compressor_freq
+                entity: sensor.heating_manager_compressor_freq
                 name: Compressor
                 icon: mdi:sine-wave
 
           # Defrost alert banner — only visible when defrost is active
           - type: conditional
             conditions:
-              - entity: sensor.heishamon_defrosting_state
+              - entity: sensor.heating_manager_defrosting_state
                 state: Active
             card:
               type: markdown
@@ -129,36 +129,36 @@ views:
             title: Current Temperatures
             columns: 3
             entities:
-              - entity: sensor.heishamon_outside_temp
+              - entity: sensor.heating_manager_outside_temp
                 name: Outdoor
                 icon: mdi:thermometer
 
-              - entity: sensor.heishamon_outside_pipe_temp
+              - entity: sensor.heating_manager_outside_pipe_temp
                 name: Outside Pipe
                 icon: mdi:pipe
 
-              - entity: sensor.heishamon_inlet_temp
+              - entity: sensor.heating_manager_inlet_temp
                 name: Inlet
                 icon: mdi:thermometer-water
 
-              - entity: sensor.heishamon_outlet_temp
+              - entity: sensor.heating_manager_outlet_temp
                 name: Outlet
                 icon: mdi:thermometer-high
 
-              - entity: sensor.heishamon_z1_heat_request
+              - entity: sensor.heating_manager_z1_heat_request
                 name: Z1 Target
                 icon: mdi:target
 
-              - entity: sensor.heishamon_z1_water_temp
+              - entity: sensor.heating_manager_z1_water_temp
                 name: Z1 Water
                 icon: mdi:water-thermometer
 
               # Room temp / setpoint — requires MQTT sensors from sensors.yaml
-              - entity: sensor.heishamon_room_temp
+              - entity: sensor.heating_manager_room_temp
                 name: Room Temp
                 icon: mdi:home-thermometer
 
-              - entity: sensor.heishamon_room_setpoint_received
+              - entity: sensor.heating_manager_room_setpoint_received
                 name: Room Setpoint
                 icon: mdi:home-thermometer-outline
 
@@ -176,13 +176,13 @@ views:
             hours_to_show: 24
             refresh_interval: 60
             entities:
-              - entity: sensor.heishamon_outlet_temp
+              - entity: sensor.heating_manager_outlet_temp
                 name: Outlet
-              - entity: sensor.heishamon_inlet_temp
+              - entity: sensor.heating_manager_inlet_temp
                 name: Inlet
-              - entity: sensor.heishamon_outside_temp
+              - entity: sensor.heating_manager_outside_temp
                 name: Outdoor
-              - entity: sensor.heishamon_z1_heat_request
+              - entity: sensor.heating_manager_z1_heat_request
                 name: Z1 Heat Request
 
       # ----------------------------------------------------------
@@ -201,22 +201,22 @@ views:
             title: Power Now
             columns: 3
             entities:
-              - entity: sensor.heishamon_heat_power_produced
+              - entity: sensor.heating_manager_heat_power_produced
                 name: Heat Produced
                 icon: mdi:radiator
 
-              - entity: sensor.heishamon_heat_power_consumed
+              - entity: sensor.heating_manager_heat_power_consumed
                 name: Electricity In
                 icon: mdi:lightning-bolt
 
-              - entity: sensor.heishamon_heat_cop
+              - entity: sensor.heating_manager_heat_cop
                 name: COP (heat)
                 icon: mdi:fire
 
           - type: markdown
             title: Live Efficiency
             content: >
-              ### COP (Heat only): {{ states('sensor.heishamon_heat_cop') }} ×
+              ### COP (Heat only): {{ states('sensor.heating_manager_heat_cop') }} ×
 
               > _COP > 3 is good for floor heating. COP > 4 is excellent._
 
@@ -225,9 +225,9 @@ views:
             hours_to_show: 24
             refresh_interval: 60
             entities:
-              - entity: sensor.heishamon_heat_power_produced
+              - entity: sensor.heating_manager_heat_power_produced
                 name: Heat Produced (W)
-              - entity: sensor.heishamon_heat_power_consumed
+              - entity: sensor.heating_manager_heat_power_consumed
                 name: Heat Consumed (W)
 
       # ----------------------------------------------------------
@@ -243,37 +243,37 @@ views:
           - type: entities
             title: Compressor & Pump
             entities:
-              - entity: sensor.heishamon_operating_hours
+              - entity: sensor.heating_manager_operating_hours
                 name: Compressor Operating Hours
                 icon: mdi:clock-outline
 
-              - entity: sensor.heishamon_start_stop_counter
+              - entity: sensor.heating_manager_start_stop_counter
                 name: Compressor Starts / Stops
                 icon: mdi:counter
 
-              - entity: sensor.heishamon_pump_flow
+              - entity: sensor.heating_manager_pump_flow
                 name: Pump Flow
                 icon: mdi:water-pump
 
-              - entity: sensor.heishamon_pump_speed
+              - entity: sensor.heating_manager_pump_speed
                 name: Pump Speed
                 icon: mdi:speedometer
 
               - type: divider
 
-              - entity: sensor.heishamon_fan1_speed
+              - entity: sensor.heating_manager_fan1_speed
                 name: Fan 1 Speed
                 icon: mdi:fan
 
-              - entity: sensor.heishamon_fan2_speed
+              - entity: sensor.heating_manager_fan2_speed
                 name: Fan 2 Speed
                 icon: mdi:fan
 
-              - entity: sensor.heishamon_compressor_current
+              - entity: sensor.heating_manager_compressor_current
                 name: Compressor Current
                 icon: mdi:current-ac
 
-              - entity: sensor.heishamon_last_error
+              - entity: sensor.heating_manager_last_error
                 name: Last Error Code
                 icon: mdi:alert-circle-outline
 
@@ -303,19 +303,19 @@ views:
           - type: entities
             title: WAR Setpoint vs Actual
             entities:
-              - entity: sensor.heishamon_outside_temp
+              - entity: sensor.heating_manager_outside_temp
                 name: Outdoor Temperature (WAR input)
                 icon: mdi:thermometer-chevron-up
 
-              - entity: sensor.heishamon_war_setpoint
+              - entity: sensor.heating_manager_war_setpoint
                 name: WAR Setpoint (curve only)
                 icon: mdi:chart-bell-curve
 
-              - entity: sensor.heishamon_z1_heat_request
+              - entity: sensor.heating_manager_z1_heat_request
                 name: Actual Z1 Request (sent by rules)
                 icon: mdi:target
 
-              - entity: sensor.heishamon_net_shift
+              - entity: sensor.heating_manager_net_shift
                 name: Net Shift (actual − WAR)
                 icon: mdi:delta
 
@@ -324,13 +324,13 @@ views:
             content: >
               ### Weather Curve Analysis
 
-              Outdoor: **{{ states('sensor.heishamon_outside_temp') }}°C**
+              Outdoor: **{{ states('sensor.heating_manager_outside_temp') }}°C**
 
-              WAR setpoint: **{{ states('sensor.heishamon_war_setpoint') }}°C**
+              WAR setpoint: **{{ states('sensor.heating_manager_war_setpoint') }}°C**
 
-              Actual Z1 request: **{{ states('sensor.heishamon_z1_heat_request') }}°C**
+              Actual Z1 request: **{{ states('sensor.heating_manager_z1_heat_request') }}°C**
 
-              Net shift: **{{ (states('sensor.heishamon_z1_heat_request') | float(0) - states('sensor.heishamon_war_setpoint') | float(0)) | round(1) }}°C**
+              Net shift: **{{ (states('sensor.heating_manager_z1_heat_request') | float(0) - states('sensor.heating_manager_war_setpoint') | float(0)) | round(1) }}°C**
 
               > Shift > 0 = min-freq boost or cold compensation active.
               > Shift < 0 = RTC reducing heat (room is warm) or soft-start ramp.
@@ -348,19 +348,19 @@ views:
           - type: entities
             title: RTC Inputs & Correction
             entities:
-              - entity: sensor.heishamon_room_temp
+              - entity: sensor.heating_manager_room_temp
                 name: Room Temperature (measured)
                 icon: mdi:home-thermometer
 
-              - entity: sensor.heishamon_room_setpoint_received
+              - entity: sensor.heating_manager_room_setpoint_received
                 name: Room Setpoint (target)
                 icon: mdi:home-thermometer-outline
 
-              - entity: sensor.heishamon_rtc_delta
+              - entity: sensor.heating_manager_rtc_delta
                 name: RTC Delta (room − setpoint)
                 icon: mdi:delta
 
-              - entity: sensor.heishamon_rtc_correction
+              - entity: sensor.heating_manager_rtc_correction
                 name: RTC Correction Applied
                 icon: mdi:thermometer-plus-outline
 
@@ -369,12 +369,12 @@ views:
             content: >
               ### Room Temperature Control
 
-              Room: **{{ states('sensor.heishamon_room_temp') }}°C**
-              vs setpoint **{{ states('sensor.heishamon_room_setpoint_received') }}°C**
+              Room: **{{ states('sensor.heating_manager_room_temp') }}°C**
+              vs setpoint **{{ states('sensor.heating_manager_room_setpoint_received') }}°C**
 
-              Delta: **{{ states('sensor.heishamon_rtc_delta') }}°C**
+              Delta: **{{ states('sensor.heating_manager_rtc_delta') }}°C**
 
-              RTC correction: **{{ states('sensor.heishamon_rtc_correction') }}°C**
+              RTC correction: **{{ states('sensor.heating_manager_rtc_correction') }}°C**
 
               > Positive delta = room is warmer than target → RTC reduces setpoint.
               > Negative delta = room is cooler → RTC increases setpoint.
@@ -395,19 +395,19 @@ views:
           - type: entities
             title: Soft-Start Status
             entities:
-              - entity: sensor.heishamon_compressor_freq
+              - entity: sensor.heating_manager_compressor_freq
                 name: Compressor Frequency (live)
                 icon: mdi:sine-wave
 
-              - entity: sensor.heishamon_compressor_run_seconds
+              - entity: sensor.heating_manager_compressor_run_seconds
                 name: Compressor Running (seconds)
                 icon: mdi:timer-outline
 
-              - entity: sensor.heishamon_softstart_progress
+              - entity: sensor.heating_manager_softstart_progress
                 name: Soft-Start Ramp Progress
                 icon: mdi:progress-clock
 
-              - entity: sensor.heishamon_softstart_shift
+              - entity: sensor.heating_manager_softstart_shift
                 name: Soft-Start Shift (°C)
                 icon: mdi:thermometer-chevron-down
 
@@ -416,12 +416,12 @@ views:
             content: >
               ### Soft-Start Status
 
-              {% set secs = states('sensor.heishamon_compressor_run_seconds') | float(0) %}
+              {% set secs = states('sensor.heating_manager_compressor_run_seconds') | float(0) %}
               {% set mins = (secs / 60) | round(1) %}
-              {% set progress = states('sensor.heishamon_softstart_progress') | float(0) %}
-              {% set shift = states('sensor.heishamon_softstart_shift') | float(0) %}
-              {% set outdoor = states('sensor.heishamon_outside_temp') | float(99) %}
-              {% set freq = states('sensor.heishamon_compressor_freq') | float(0) %}
+              {% set progress = states('sensor.heating_manager_softstart_progress') | float(0) %}
+              {% set shift = states('sensor.heating_manager_softstart_shift') | float(0) %}
+              {% set outdoor = states('sensor.heating_manager_outside_temp') | float(99) %}
+              {% set freq = states('sensor.heating_manager_compressor_freq') | float(0) %}
 
               {% if outdoor > 8 %}
               Outdoor temperature is **{{ outdoor }}°C** — soft-start only activates below 8°C.
@@ -460,11 +460,11 @@ views:
             hours_to_show: 24
             refresh_interval: 60
             entities:
-              - entity: sensor.heishamon_war_setpoint
+              - entity: sensor.heating_manager_war_setpoint
                 name: WAR Setpoint (curve only)
-              - entity: sensor.heishamon_z1_heat_request
+              - entity: sensor.heating_manager_z1_heat_request
                 name: Z1 Heat Request (rules output)
-              - entity: sensor.heishamon_target_temp
+              - entity: sensor.heating_manager_target_temp
                 name: Main Target (HP confirmed)
 
           - type: markdown
@@ -502,7 +502,7 @@ views:
           - type: entities
             title: Room Temperature Target
             entities:
-              - entity: input_number.heishamon_room_setpoint_target
+              - entity: number.heating_manager_room_setpoint_target
                 name: Room Setpoint
                 icon: mdi:home-thermometer-outline
 
@@ -543,29 +543,29 @@ views:
           - type: entities
             title: "Outdoor Temperatures (°C)"
             entities:
-              - entity: input_number.heishamon_war_outdoor_low
+              - entity: number.heating_manager_war_outdoor_low
                 name: Cold point (outdoor)
-              - entity: input_number.heishamon_war_outdoor_mid
+              - entity: number.heating_manager_war_outdoor_mid
                 name: Mid point (outdoor)
-              - entity: input_number.heishamon_war_outdoor_high
+              - entity: number.heating_manager_war_outdoor_high
                 name: Warm point (outdoor)
 
           - type: entities
             title: "Water Target Temperatures (°C)"
             entities:
-              - entity: input_number.heishamon_war_target_low
+              - entity: number.heating_manager_war_target_low
                 name: Cold point (water target)
-              - entity: input_number.heishamon_war_target_mid
+              - entity: number.heating_manager_war_target_mid
                 name: Mid point (water target)
-              - entity: input_number.heishamon_war_target_high
+              - entity: number.heating_manager_war_target_high
                 name: Warm point (water target)
 
           - type: entities
             title: "Setpoint Limits"
             entities:
-              - entity: input_number.heishamon_war_min_setpoint
+              - entity: number.heating_manager_war_min_setpoint
                 name: Minimum setpoint
-              - entity: input_number.heishamon_war_max_setpoint
+              - entity: number.heating_manager_war_max_setpoint
                 name: Maximum setpoint
 
       # ----------------------------------------------------------
@@ -586,11 +586,11 @@ views:
           - type: entities
             title: Soft-Start Settings
             entities:
-              - entity: input_number.heishamon_softstart_duration
+              - entity: number.heating_manager_softstart_duration
                 name: Ramp duration (s)
-              - entity: input_number.heishamon_softstart_max_shift
+              - entity: number.heating_manager_softstart_max_shift
                 name: Max temperature shift (°C)
-              - entity: input_number.heishamon_softstart_outdoor_max
+              - entity: number.heating_manager_softstart_outdoor_max
                 name: Active below outdoor temp (°C)
 
       # ----------------------------------------------------------
@@ -607,19 +607,19 @@ views:
             title: Heat Pump Controls
             entities:
               # Quiet mode — reduces noise at the cost of efficiency
-              - entity: input_select.heishamon_quiet_mode
+              - entity: select.heating_manager_quiet_mode
                 name: Quiet Mode
                 icon: mdi:volume-off
 
               # Operation mode — controls operating mode (Heat, DHW, combined, etc.)
-              - entity: input_select.heishamon_operation_mode
+              - entity: select.heating_manager_operation_mode
                 name: Operation Mode
                 icon: mdi:heat-pump
 
               - type: divider
 
               # DHW target temperature
-              - entity: input_number.heishamon_dhw_temp
+              - entity: number.heating_manager_dhw_temp
                 name: DHW Target Temperature
                 icon: mdi:water-thermometer
 
@@ -647,18 +647,18 @@ views:
               # Heating Mode: must be 1 (Direct) for rules to set absolute water temps.
               # If 0 (Compensation Curve), the HP treats the setpoint as a curve offset
               # and WAR will not behave as expected.
-              - entity: sensor.heishamon_heating_mode
+              - entity: sensor.heating_manager_heating_mode
                 name: "Heating Mode  (required: Direct = 1)"
                 icon: mdi:thermometer-check
 
               # Z1 Sensor Setting: must be 0 (Water sensor) for direct temperature control.
               # If set to thermostat mode, direct setpoints are ignored.
-              - entity: sensor.heishamon_z1_sensor_settings
+              - entity: sensor.heating_manager_z1_sensor_settings
                 name: "Z1 Sensor  (required: Water = 0)"
                 icon: mdi:water-thermometer
 
               # Pump Flowrate Mode: 0 (DeltaT) recommended for pump duty control.
-              - entity: sensor.heishamon_pump_flowrate_mode
+              - entity: sensor.heating_manager_pump_flowrate_mode
                 name: "Pump Flowrate Mode  (recommended: DeltaT = 0)"
                 icon: mdi:pump
 
@@ -679,7 +679,7 @@ views:
 
               1. HeishaMon web UI → **Settings** → confirm **OpenTherm** is enabled
               2. After enabling, run the **HeishaMon: Sync room temperature** automation once manually
-              3. Check `sensor.heishamon_room_temp` below — if it shows a value, OpenTherm is working
+              3. Check `sensor.heating_manager_room_temp` below — if it shows a value, OpenTherm is working
 
           - type: entities
             title: OpenTherm / RTC Status (inferred)
@@ -687,11 +687,11 @@ views:
             entities:
               # If this sensor has a value, OpenTherm is enabled and HA → HeishaMon RTC path works.
               # If unavailable, check HeishaMon Settings → OpenTherm and rerun the sync automation.
-              - entity: sensor.heishamon_room_temp
+              - entity: sensor.heating_manager_room_temp
                 name: "Room Temp received by HeishaMon  (must have value for RTC)"
                 icon: mdi:home-thermometer
 
-              - entity: sensor.heishamon_room_setpoint_received
+              - entity: sensor.heating_manager_room_setpoint_received
                 name: "Room Setpoint received by HeishaMon  (must have value for RTC)"
                 icon: mdi:home-thermometer-outline
 
@@ -744,19 +744,19 @@ views:
             entities:
               # These entities show when HeishaMon last published.
               # If they haven't updated in >5 minutes, check MQTT.
-              - entity: sensor.heishamon_outside_temp
+              - entity: sensor.heating_manager_outside_temp
                 name: Outdoor Temp (last update)
                 icon: mdi:thermometer
 
-              - entity: sensor.heishamon_compressor_freq
+              - entity: sensor.heating_manager_compressor_freq
                 name: Compressor Freq (last update)
                 icon: mdi:sine-wave
 
-              - entity: sensor.heishamon_z1_heat_request
+              - entity: sensor.heating_manager_z1_heat_request
                 name: Z1 Heat Request (last update)
                 icon: mdi:target
 
-              - entity: sensor.heishamon_room_temp
+              - entity: sensor.heating_manager_room_temp
                 name: Room Temp (MQTT echo, last update)
                 icon: mdi:home-thermometer
 

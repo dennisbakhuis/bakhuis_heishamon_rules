@@ -108,96 +108,28 @@ If nothing arrives, confirm HeishaMon is online and its MQTT broker settings
 
 ## Phase 3 — Heating Manager dashboard
 
-Install the dashboard **before** the rules so you can see the heat pump behaving
-normally first and confirm everything is working. The dashboard reads from the
-same MQTT topics the rules will later write to.
+Install the integration **before** the rules so you can see the heat pump behaving
+normally first and confirm everything is working.
 
-Full instructions: [`src/heating_manager/README.md`](src/heating_manager/README.md)
+### Install via HACS
 
-### Quick Install via HACS (recommended)
+1. In Home Assistant: HACS → ⋮ → Custom Repositories →
+   URL: `https://github.com/dennisbakhuis/bakhuis_heishamon_rules` → Category: Integration → Add
 
-1. **Add this repository to HACS:**
-   In Home Assistant → HACS → ⋮ → Custom repositories →
-   paste `https://github.com/dennisbakhuis/bakhuis_heishamon_rules` → category: **Integration**
+2. Find "Heating Manager for HeishaMon" in HACS → Install → Restart Home Assistant
 
-2. **Install "Heating Manager for HeishaMon"** from HACS and restart HA.
-   HACS downloads all files to your HA instance.
+3. Go to **Settings → Integrations → + Add Integration** → search "Heating Manager"
 
-3. **Copy the package file** from the downloaded location to your `packages/` folder:
-   ```bash
-   mkdir -p /config/packages
-   cp /config/custom_components/heating_manager/../../src/heating_manager/heating_manager_package.yaml /config/packages/
-   ```
-   Or download it directly from the
-   [GitHub repo](https://github.com/dennisbakhuis/bakhuis_heishamon_rules/blob/main/src/heating_manager/heating_manager_package.yaml).
+4. Enter your MQTT base topic (default: `panasonic_heat_pump`) and optionally
+   your room temperature sensor entity ID for RTC
 
-4. **Add one line to `configuration.yaml`:**
-   ```yaml
-   homeassistant:
-     packages:
-       heating_manager: !include packages/heating_manager_package.yaml
-   ```
-
-5. **Set your room temperature sensor** (for RTC):
-   Open `heating_manager_package.yaml`, find `REPLACE_WITH_YOUR_ROOM_SENSOR`, and replace
-   it with your actual room sensor entity ID. Skip if not using RTC.
-
-6. **Restart Home Assistant.**
-
-7. **Import the dashboard:**
-   Settings → Dashboards → Add Dashboard → Edit → YAML mode →
-   paste the contents of `src/heating_manager/dashboard.yaml`.
-
-8. **Tune from the Settings tab** — WAR curve, soft-start, operation mode, quiet mode, DHW temp.
-
-### Alternative: Manual package install
-
-1. **Create `packages/` directory** in your HA config folder (next to `configuration.yaml`):
-   ```bash
-   mkdir -p /config/packages
-   ```
-
-2. **Copy the package file:**
-   ```bash
-   cp src/heating_manager/heating_manager_package.yaml /config/packages/
-   ```
-
-3. **Add one line to `configuration.yaml`:**
-   ```yaml
-   homeassistant:
-     packages:
-       heating_manager: !include packages/heating_manager_package.yaml
-   ```
-   If you already have a `homeassistant:` block, just add the `packages:` key under it.
-
-4. **Set your room temperature sensor:**
-   Open `heating_manager_package.yaml` and find `REPLACE_WITH_YOUR_ROOM_SENSOR`.
-   Replace it with your actual room temperature entity ID (e.g. `sensor.living_room_temperature`).
-   Skip this step if you are not using RTC.
-
-5. **Restart Home Assistant.**
+5. Submit → all sensors, controls, and analysis entities are created automatically
 
 6. **Import the dashboard:**
-   - Go to Settings → Dashboards → Add Dashboard → Create new → Edit (pencil icon)
-   - Switch to YAML mode → paste the contents of `src/heating_manager/dashboard.yaml`
-   - Save and close
+   Settings → Dashboards → Add Dashboard → give it a name → Edit (pencil) →
+   switch to YAML mode → paste the contents of `src/heating_manager/dashboard.yaml`
 
-7. **Configure settings from the dashboard:**
-   Open the Settings tab in the Heating Manager dashboard to tune WAR curve parameters,
-   soft-start settings, operation mode, quiet mode, and DHW temperature — all from the UI.
-
-At this point the **Monitor** tab should show live data from your heat pump and
-the **Analysis** tab should show the WAR curve, RTC state, and soft-start state
-(all computed by HA from the live sensor values). The **Settings** tab lets you
-adjust the room setpoint, WAR curve points, and soft-start parameters.
-
-### Alternative: Manual Install
-
-If you prefer to merge each section into your existing `configuration.yaml` manually,
-see the individual files in `src/heating_manager/`:
-- `sensors.yaml` — MQTT sensors and template sensors
-- `helpers.yaml` — input helpers
-- `automations.yaml` — automations
+That's it — no configuration.yaml editing required.
 
 > ✅ Confirm you can see live temperatures and the WAR setpoint is computing
 > correctly before moving to Phase 4.

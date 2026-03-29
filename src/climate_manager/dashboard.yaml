@@ -530,25 +530,24 @@ views:
             content: "## 🌡️ Room Sensor (RTC Input)"
 
           - type: entities
-            title: Current Room Temperature
+            title: Room Sensor Configuration
             entities:
-              - entity: sensor.climate_manager_room_sensor_temp
-                name: Room Temperature
-                icon: mdi:home-thermometer
-              - type: attribute
-                entity: sensor.climate_manager_room_sensor_temp
-                attribute: room_sensor_entity
-                name: Configured Entity ID
+              - entity: text.climate_manager_room_sensor_entity
+                name: Room Sensor Entity ID
                 icon: mdi:identifier
+              - entity: sensor.climate_manager_room_sensor_temp
+                name: Current Temperature
+                icon: mdi:home-thermometer
 
           - type: markdown
             content: >
               **Last reading:** {{ states.sensor.climate_manager_room_sensor_temp.last_changed
               | as_timestamp | timestamp_custom('%Y-%m-%d %H:%M:%S', true)
-              if states('sensor.climate_manager_room_sensor_temp') not in ['unknown', 'unavailable']
+              if states('sensor.climate_manager_room_sensor_temp') not in ['unknown', 'unavailable', 'None']
               else 'n/a' }}
 
-              To change the room sensor: **Settings → Integrations → Climate Manager → Configure**.
+              Type the full entity ID of your room temperature sensor (e.g. `sensor.living_room_temperature`).
+              The integration will immediately start reading from it.
 
       # ----------------------------------------------------------
       # SECTION A2 — WAR CURVE PARAMETERS

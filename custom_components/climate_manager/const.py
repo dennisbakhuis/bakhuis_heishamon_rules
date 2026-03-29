@@ -5,7 +5,7 @@ CONF_MQTT_BASE = "mqtt_base"
 CONF_ROOM_SENSOR = "room_sensor"
 DEFAULT_MQTT_BASE = "panasonic_heat_pump"
 
-PLATFORMS = ["sensor", "switch", "number", "select"]
+PLATFORMS = ["sensor", "switch", "number", "select", "text"]
 
 # Read topics (relative to base)
 TOPIC_HEATPUMP_STATE = "main/Heatpump_State"

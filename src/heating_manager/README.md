@@ -43,7 +43,25 @@ Controls and diagnostics:
 
 ---
 
-### Step 1 — Add Input Helpers
+### Step 1 — Add MQTT Switch (master on/off)
+
+Uncomment the `mqtt: switch:` block in `helpers.yaml` and add it to your `configuration.yaml` under the `mqtt:` key. This creates `switch.aquarea_heatpump` — the master on/off toggle shown at the top of the Monitor tab.
+
+```yaml
+mqtt:
+  switch:
+    - name: "Aquarea Heat Pump"
+      unique_id: aquarea_heatpump
+      state_topic: "panasonic_heat_pump/main/Heatpump_State"
+      command_topic: "panasonic_heat_pump/commands/SetHeatpump"
+      payload_on: "1"
+      payload_off: "0"
+      state_on: "1"
+      state_off: "0"
+      icon: mdi:heat-pump
+```
+
+### Step 2 — Add Input Helpers
 
 Open `helpers.yaml` and paste the contents into your `configuration.yaml`:
 
@@ -71,7 +89,7 @@ If you use separate include files (`input_number.yaml`, `input_datetime.yaml`), 
 
 ---
 
-### Step 2 — Add Template Sensors
+### Step 3 — Add Template Sensors
 
 Open `sensors.yaml`. The `template:` block at the top contains all the computed sensors for the Analysis tab.
 
@@ -89,7 +107,7 @@ template:
 
 ---
 
-### Step 3 — Add MQTT Sensors
+### Step 4 — Add MQTT Sensors
 
 At the bottom of `sensors.yaml` there is a commented-out block for the MQTT room temperature sensors. These subscribe to HeishaMon's OpenTherm echo topics so HA can display the values HeishaMon received.
 
@@ -117,7 +135,7 @@ mqtt:
 
 ---
 
-### Step 4 — Add Automations
+### Step 5 — Add Automations
 
 Open `automations.yaml`. It contains two automations.
 
@@ -133,7 +151,7 @@ Paste both automations into your `automations.yaml` (the file HA manages, usuall
 
 ---
 
-### Step 5 — Restart Home Assistant
+### Step 6 — Restart Home Assistant
 
 After adding helpers, template sensors, MQTT sensors, and automations:
 
@@ -143,7 +161,7 @@ After adding helpers, template sensors, MQTT sensors, and automations:
 
 ---
 
-### Step 6 — Import the Dashboard
+### Step 7 — Import the Dashboard
 
 1. Go to **Settings → Dashboards**
 2. Click **+ Add dashboard**
@@ -157,7 +175,7 @@ After adding helpers, template sensors, MQTT sensors, and automations:
 
 ---
 
-### Step 7 — Verify Entity IDs
+### Step 8 — Verify Entity IDs
 
 Open the Monitor tab. If any entity cards show "Entity not available", the entity ID may differ from the expected name.
 

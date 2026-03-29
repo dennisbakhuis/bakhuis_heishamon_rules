@@ -726,7 +726,7 @@ class CompressorRunSecondsSensor(HeishaMonTemplateSensor):
 class SoftStartShiftSensor(HeishaMonTemplateSensor):
     """Soft-Start Shift sensor."""
 
-    _attr_name = "Soft-Start Shift"
+    _attr_name = "Softstart Shift"
     _attr_unique_id = "climate_manager_softstart_shift"
     _attr_native_unit_of_measurement = "°C"
     _attr_state_class = SensorStateClass.MEASUREMENT
@@ -758,7 +758,7 @@ class SoftStartShiftSensor(HeishaMonTemplateSensor):
 class SoftStartProgressSensor(HeishaMonTemplateSensor):
     """Soft-Start Progress sensor."""
 
-    _attr_name = "Soft-Start Progress"
+    _attr_name = "Softstart Progress"
     _attr_unique_id = "climate_manager_softstart_progress"
     _attr_native_unit_of_measurement = "%"
     _attr_state_class = SensorStateClass.MEASUREMENT

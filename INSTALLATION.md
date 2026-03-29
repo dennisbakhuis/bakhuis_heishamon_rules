@@ -114,7 +114,43 @@ same MQTT topics the rules will later write to.
 
 Full instructions: [`src/heating_manager/README.md`](src/heating_manager/README.md)
 
-### Quick Install (recommended)
+### Quick Install via HACS (recommended)
+
+1. **Add this repository to HACS:**
+   In Home Assistant → HACS → ⋮ → Custom repositories →
+   paste `https://github.com/dennisbakhuis/bakhuis_heishamon_rules` → category: **Integration**
+
+2. **Install "Heating Manager for HeishaMon"** from HACS and restart HA.
+   HACS downloads all files to your HA instance.
+
+3. **Copy the package file** from the downloaded location to your `packages/` folder:
+   ```bash
+   mkdir -p /config/packages
+   cp /config/custom_components/heating_manager/../../src/heating_manager/heating_manager_package.yaml /config/packages/
+   ```
+   Or download it directly from the
+   [GitHub repo](https://github.com/dennisbakhuis/bakhuis_heishamon_rules/blob/main/src/heating_manager/heating_manager_package.yaml).
+
+4. **Add one line to `configuration.yaml`:**
+   ```yaml
+   homeassistant:
+     packages:
+       heating_manager: !include packages/heating_manager_package.yaml
+   ```
+
+5. **Set your room temperature sensor** (for RTC):
+   Open `heating_manager_package.yaml`, find `REPLACE_WITH_YOUR_ROOM_SENSOR`, and replace
+   it with your actual room sensor entity ID. Skip if not using RTC.
+
+6. **Restart Home Assistant.**
+
+7. **Import the dashboard:**
+   Settings → Dashboards → Add Dashboard → Edit → YAML mode →
+   paste the contents of `src/heating_manager/dashboard.yaml`.
+
+8. **Tune from the Settings tab** — WAR curve, soft-start, operation mode, quiet mode, DHW temp.
+
+### Alternative: Manual package install
 
 1. **Create `packages/` directory** in your HA config folder (next to `configuration.yaml`):
    ```bash

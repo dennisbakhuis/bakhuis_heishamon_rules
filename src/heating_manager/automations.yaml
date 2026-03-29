@@ -1,0 +1,136 @@
+# ============================================================
+# automations.yaml — HeishaMon Heating Manager Automations
+#
+# Two automations:
+#   A. Room temperature sync (RTC keepalive)
+#   B. Compressor start time tracker (for soft-start display)
+#
+# SETUP REQUIRED before using:
+#   1. Replace `sensor.your_room_temperature_sensor` with the
+#      entity_id of your actual room temperature sensor in HA.
+#      Search for it in Developer Tools → States.
+#
+# ADD TO HOME ASSISTANT via:
+#   - Settings → Automations → ⋮ → Import automation → paste, OR
+#   - Add to automations.yaml if using file-based config, then
+#     reload automations via Developer Tools → YAML → Automations
+#
+# NOTE: input_number.heishamon_room_setpoint_target must exist
+#   (add it via helpers.yaml) before enabling automation A.
+# ============================================================
+
+
+# ============================================================
+# AUTOMATION A — Room Temperature Sync (RTC Keepalive)
+#
+# PURPOSE:
+#   HeishaMon's Room Temperature Control (RTC) feature adjusts
+#   the heat pump water setpoint based on measured room temperature.
+#   HeishaMon reads both values from MQTT (OpenTherm emulation).
+#
+#   This automation publishes the current room temperature and
+#   desired setpoint to HeishaMon whenever either value changes,
+#   and every 5 minutes as a keepalive (survives HA restarts).
+#
+# MQTT TOPICS (publish to HeishaMon):
+#   panasonic_heat_pump/opentherm/read/roomTemp     ← room temperature
+#   panasonic_heat_pump/opentherm/read/roomTempSet  ← desired setpoint
+#
+# VERIFICATION:
+#   After the automation runs, the MQTT sensors in sensors.yaml
+#   (heishamon_room_temperature / heishamon_room_setpoint) should
+#   update with the echoed values from HeishaMon's write/ topics.
+# ============================================================
+
+- alias: "HeishaMon: Sync room temperature to RTC"
+  id: heishamon_sync_room_temperature_rtc
+  description: >
+    Publishes the current room temperature and setpoint to HeishaMon
+    via MQTT for Room Temperature Control (RTC). Triggers on sensor
+    change, setpoint change, and every 5 minutes as a keepalive.
+  mode: single
+  max_exceeded: silent
+
+  trigger:
+    # Trigger immediately when room temperature changes
+    - platform: state
+      entity_id: sensor.your_room_temperature_sensor  # <-- REPLACE THIS
+
+    # Trigger when the setpoint slider changes
+    - platform: state
+      entity_id: input_number.heishamon_room_setpoint_target
+
+    # Keepalive: re-publish every 5 minutes to survive restarts / MQTT reconnects
+    - platform: time_pattern
+      minutes: "/5"
+
+  action:
+    # Publish current room temperature to HeishaMon
+    - service: mqtt.publish
+      data:
+        topic: "panasonic_heat_pump/opentherm/read/roomTemp"
+        retain: true
+        payload: >
+          {{ states('sensor.your_room_temperature_sensor') | float(0) | round(1) }}
+        # <-- REPLACE sensor.your_room_temperature_sensor above
+
+    # Publish room temperature setpoint to HeishaMon
+    - service: mqtt.publish
+      data:
+        topic: "panasonic_heat_pump/opentherm/read/roomTempSet"
+        retain: true
+        payload: >
+          {{ states('input_number.heishamon_room_setpoint_target') | float(21) | round(1) }}
+
+
+# ============================================================
+# AUTOMATION B — Compressor Start Time Tracker
+#
+# PURPOSE:
+#   The soft-start feature ramps the water setpoint from a boosted
+#   value back to the WAR setpoint over 780 seconds after compressor
+#   startup. HA needs to know when the compressor started to compute
+#   elapsed time and the current soft-start shift.
+#
+#   This automation records the current timestamp into
+#   input_datetime.heishamon_compressor_start_time whenever the
+#   compressor frequency rises above 10 Hz (compressor starts).
+#
+#   The template sensors in sensors.yaml read this timestamp to
+#   compute: elapsed seconds, soft-start shift, and ramp progress.
+#
+# NOTE:
+#   The condition block prevents re-triggering during an already-
+#   running compressor cycle (e.g., if frequency briefly dips below
+#   threshold and recovers). For a stricter approach, add a condition
+#   checking that the previous state was ≤ 10 Hz.
+# ============================================================
+
+- alias: "HeishaMon: Track compressor start time"
+  id: heishamon_track_compressor_start_time
+  description: >
+    Records the timestamp when the compressor starts (frequency > 10 Hz).
+    Used by the soft-start template sensors to compute elapsed runtime
+    and the current soft-start shift value.
+  mode: single
+  max_exceeded: silent
+
+  trigger:
+    # Fires when compressor frequency crosses above 10 Hz (startup)
+    - platform: numeric_state
+      entity_id: sensor.aquarea_compressor_frequency
+      above: 10
+      # Optional: add `for: "00:00:10"` to debounce brief spikes
+
+  condition:
+    # Only record if compressor is genuinely running (not a transient spike)
+    - condition: numeric_state
+      entity_id: sensor.aquarea_compressor_frequency
+      above: 10
+
+  action:
+    # Store the current timestamp as the compressor start time
+    - service: input_datetime.set_datetime
+      entity_id: input_datetime.heishamon_compressor_start_time
+      data:
+        datetime: "{{ now().strftime('%Y-%m-%d %H:%M:%S') }}"

@@ -1,0 +1,60 @@
+# ============================================================
+# helpers.yaml — Input Helper Definitions
+# for Heating Manager Dashboard
+#
+# INSTRUCTIONS:
+#   Add the blocks below to your Home Assistant configuration.
+#
+#   Option A (recommended): Paste directly into configuration.yaml
+#     under the relevant top-level keys (input_number, input_datetime).
+#
+#   Option B: If you use separate include files, paste into
+#     input_number.yaml and input_datetime.yaml respectively.
+#
+#   After adding, restart Home Assistant (or reload input helpers
+#   via Settings → System → Restart → Quick Reload).
+#
+# See README.md for full installation instructions.
+# ============================================================
+
+
+# ============================================================
+# INPUT_NUMBER — Numeric sliders and inputs
+#
+# Paste under `input_number:` in configuration.yaml
+# ============================================================
+
+input_number:
+
+  # Room temperature setpoint used by the RTC automation.
+  # This value is published to HeishaMon via MQTT each time it changes
+  # and every 5 minutes as a keepalive (see automations.yaml).
+  # The HeishaMon rules read it from: panasonic_heat_pump/opentherm/read/roomTempSet
+  heishamon_room_setpoint_target:
+    name: "Room Setpoint (RTC)"
+    min: 15
+    max: 25
+    step: 0.5
+    unit_of_measurement: "°C"
+    icon: mdi:home-thermometer-outline
+    initial: 21
+
+
+# ============================================================
+# INPUT_DATETIME — Date/time inputs
+#
+# Paste under `input_datetime:` in configuration.yaml
+# ============================================================
+
+input_datetime:
+
+  # Timestamp of when the compressor last started.
+  # Set automatically by the "HeishaMon: Track compressor start time"
+  # automation (see automations.yaml) when compressor frequency rises
+  # above 10 Hz.
+  # Used by the soft-start template sensors in sensors.yaml to compute
+  # elapsed run time and the current soft-start shift.
+  heishamon_compressor_start_time:
+    name: "Heishamon Compressor Start Time"
+    has_date: true
+    has_time: true

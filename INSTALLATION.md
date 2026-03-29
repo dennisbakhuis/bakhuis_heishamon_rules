@@ -114,43 +114,54 @@ same MQTT topics the rules will later write to.
 
 Full instructions: [`src/heating_manager/README.md`](src/heating_manager/README.md)
 
-### Summary
+### Quick Install (recommended)
 
-1. **Add input helpers** — copy the contents of `src/heating_manager/helpers.yaml`
-   into your `configuration.yaml`
+1. **Create `packages/` directory** in your HA config folder (next to `configuration.yaml`):
+   ```bash
+   mkdir -p /config/packages
+   ```
 
-2. **Add template sensors** — copy the `sensor:` blocks from
-   `src/heating_manager/sensors.yaml` into your `configuration.yaml` under
-   `template:` (or into a dedicated template file)
+2. **Copy the package file:**
+   ```bash
+   cp src/heating_manager/heating_manager_package.yaml /config/packages/
+   ```
 
-3. **Add MQTT sensors** — uncomment the MQTT sensor block at the bottom of
-   `src/heating_manager/sensors.yaml` and add it under `mqtt: sensor:` in your
-   `configuration.yaml`
+3. **Add one line to `configuration.yaml`:**
+   ```yaml
+   homeassistant:
+     packages:
+       heating_manager: !include packages/heating_manager_package.yaml
+   ```
+   If you already have a `homeassistant:` block, just add the `packages:` key under it.
 
-4. **Add automations** — import `src/heating_manager/automations.yaml` or paste
-   into your existing automations file. Update the placeholder entity ID for your
-   room temperature sensor.
+4. **Set your room temperature sensor:**
+   Open `heating_manager_package.yaml` and find `REPLACE_WITH_YOUR_ROOM_SENSOR`.
+   Replace it with your actual room temperature entity ID (e.g. `sensor.living_room_temperature`).
+   Skip this step if you are not using RTC.
 
-   > **Note:** `automations.yaml` contains two automations:
-   > - **Room temp sync** — publishes your room temperature and setpoint to HeishaMon
-   >   via MQTT. This is what the RTC feature in the rules reads. It has no effect
-   >   until the rules are deployed in Phase 4, but set it up now so it's ready.
-   > - **Compressor start tracker** — records when the compressor starts so the
-   >   dashboard can display soft-start progress. Purely for monitoring.
+5. **Restart Home Assistant.**
 
-5. **Restart HA**
+6. **Import the dashboard:**
+   - Go to Settings → Dashboards → Add Dashboard → Create new → Edit (pencil icon)
+   - Switch to YAML mode → paste the contents of `src/heating_manager/dashboard.yaml`
+   - Save and close
 
-6. **Import the dashboard** — Settings → Dashboards → Add Dashboard →
-   paste the contents of `src/heating_manager/dashboard.yaml` → enable
-   **Show in sidebar**
-
-7. **Verify entity IDs** — open the Analysis tab. If sensors show `unavailable`,
-   check the entity ID prefix (see the README for how to find and fix mismatches)
+7. **Configure settings from the dashboard:**
+   Open the Settings tab in the Heating Manager dashboard to tune WAR curve parameters,
+   soft-start settings, operation mode, quiet mode, and DHW temperature — all from the UI.
 
 At this point the **Monitor** tab should show live data from your heat pump and
 the **Analysis** tab should show the WAR curve, RTC state, and soft-start state
 (all computed by HA from the live sensor values). The **Settings** tab lets you
-adjust the room setpoint for RTC.
+adjust the room setpoint, WAR curve points, and soft-start parameters.
+
+### Alternative: Manual Install
+
+If you prefer to merge each section into your existing `configuration.yaml` manually,
+see the individual files in `src/heating_manager/`:
+- `sensors.yaml` — MQTT sensors and template sensors
+- `helpers.yaml` — input helpers
+- `automations.yaml` — automations
 
 > ✅ Confirm you can see live temperatures and the WAR setpoint is computing
 > correctly before moving to Phase 4.

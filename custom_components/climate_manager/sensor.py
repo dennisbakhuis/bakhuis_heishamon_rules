@@ -17,7 +17,7 @@ from homeassistant.components.sensor import (
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers.entity import DeviceInfo
+from homeassistant.helpers.entity import DeviceInfo, EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import (
     async_track_state_change_event,
@@ -418,6 +418,10 @@ class HeishaMonMQTTSensor(RestoreSensor, SensorEntity):
         self._attr_icon = icon
         self._attr_device_info = DEVICE_INFO
         self._attr_entity_registry_enabled_default = enabled_by_default
+        # Disabled-by-default sensors are diagnostic — they show in a separate
+        # "Diagnostic" section instead of cluttering the main entity list.
+        if not enabled_by_default:
+            self._attr_entity_category = EntityCategory.DIAGNOSTIC
         self._unsubscribe: Any = None
 
     @property

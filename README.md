@@ -1,6 +1,8 @@
 # bakhuis_heishamon_rules
 HeishaMon rules for the Bakhuis Panasonic Aquarea heat pump — Weather Dependent Control (WDC) with minimum-frequency operation and pump speed management.
 
+> 📖 **New here?** Start with the **[Installation Guide](INSTALLATION.md)** — it walks through HeishaMon setup, HA integration, the Heating Manager dashboard, and rules deployment in the correct order.
+
 ## What the rules do
 The rules run directly on the [HeishaMon](https://github.com/heishamon/HeishaMon) device (ESP8266) and implement four control loops:
 

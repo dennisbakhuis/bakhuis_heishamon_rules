@@ -99,8 +99,6 @@ EXPECTED_ENTITIES = {
     "sensor.climate_manager_heating_mode",
     "sensor.climate_manager_z1_sensor_settings",
     "sensor.climate_manager_pump_flowrate_mode",
-    "sensor.climate_manager_room_temp",
-    "sensor.climate_manager_room_setpoint_received",
     # Template sensors (8)
     "sensor.climate_manager_war_setpoint",
     "sensor.climate_manager_net_shift",

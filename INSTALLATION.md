@@ -65,8 +65,16 @@ the **Log** tab shows what it's receiving from the heat pump.
 ### 1.5 Enable OpenTherm (required for RTC)
 
 In the HeishaMon web UI → **Settings** → enable **OpenTherm**.
-No physical OpenTherm thermostat is needed — this just enables the MQTT interface
-that lets Home Assistant send room temperature values to the rules.
+
+**Physical OpenTherm hardware is NOT required.**
+You only need OpenTherm *enabled* in HeishaMon settings to activate the MQTT interface.
+
+How RTC works without hardware:
+- HA computes the RTC delta: `delta = room_sensor_temp − room_setpoint_target`
+- HA publishes the delta every 5 minutes (and on every change) to `panasonic_heat_pump/opentherm/read/outsideTemp`
+- HeishaMon rules read `?outsideTemp` as the pre-computed delta
+- The rules apply a stepped correction to the water setpoint based on the delta
+- Set `#enableRTC = 1` in the rules to activate room temperature control
 
 ---
 
@@ -230,7 +238,7 @@ re-upload the minified file.
 | Dashboard showing wrong entity IDs | See `src/climate_manager/README.md` → Entity ID verification |
 | Rules not taking effect | HeishaMon Console → any parse errors? Rules tab → is ruleset saved? |
 | Z1 request not changing | Check `@Outside_Temp` is available; timer=1 fires after 60s from boot |
-| RTC not working | OpenTherm enabled in HeishaMon? HA automation running? Check `sensor.heishamon_room_temperature` in HA |
+| RTC not working | OpenTherm enabled in HeishaMon settings? Room sensor configured in integration? Check `sensor.climate_manager_room_sensor_temp` has a value in HA |
 | Soft-start never activates | Outdoor temp must be ≤ 8°C; check `sensor.heishamon_softstart_progress` |
 
 ---

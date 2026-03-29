@@ -184,21 +184,21 @@ on calculateRTC() then
   --[[*************************************************************************
    * ROOM TEMPERATURE CONTROL (RTC) FUNCTION
    *
-   * Adjusts the water setpoint based on room temperature feedback from Home
-   * Assistant via MQTT.
+   * Adjusts the water setpoint based on a pre-computed RTC delta published by
+   * Home Assistant via the HeishaMon OpenTherm MQTT interface.
    *
-   * HA publishes values to the HeishaMon OpenTherm MQTT interface:
-   *   panasonic_heat_pump/opentherm/read/roomTemp    → actual room temperature
-   *   panasonic_heat_pump/opentherm/read/roomTempSet → desired room setpoint
+   * HA computes delta = actual_room_temp - room_setpoint and publishes it to:
+   *   panasonic_heat_pump/opentherm/read/outsideTemp
    *
-   * These map to rule variables ?roomTemp and ?roomTempSet.
-   * OpenTherm must be enabled in HeishaMon settings (no physical thermostat needed).
+   * This maps to rule variable ?outsideTemp.
+   * OpenTherm must be ENABLED in HeishaMon settings (Settings → OpenTherm → enable).
+   * No physical OpenTherm hardware is required — only the MQTT interface.
    *
    * The correction is a stepped offset applied on top of the weather curve and
    * min-frequency shift:
    *   finalSetpoint = calculatedSetpoint + dynamicShift + rtcShift
    *
-   * Correction table (delta = roomTemp - roomTempSet):
+   * Correction table (delta = room_temp - room_setpoint):
    *   delta > +1.5°C  → -3°C  (room too warm: aggressively reduce)
    *   +1.0 to +1.5°C  → -2°C
    *   +0.5 to +1.0°C  → -1°C
@@ -209,10 +209,15 @@ on calculateRTC() then
    *   < -2.0°C        → +4°C  (room very cold: maximum heat boost)
    *************************************************************************]]
 
-  if #enableRTC == 1 && isset(?roomTemp) && isset(?roomTempSet) then
-    $delta = ?roomTemp - ?roomTempSet;
+  if #enableRTC == 1 && isset(?outsideTemp) then
+    $delta = ?outsideTemp;
 
-    if $delta > 1.5 then
+    -- Guard: ignore if delta is out of plausible range (e.g. HeishaMon default -99)
+    if $delta < -5 then
+      #rtcShift = 0;
+    elseif $delta > 5 then
+      #rtcShift = 0;
+    elseif $delta > 1.5 then
       #rtcShift = -3;
     elseif $delta > 1.0 then
       #rtcShift = -2;
@@ -234,14 +239,20 @@ on calculateRTC() then
   end
 end
 
-on ?roomTemp then
+on ?outsideTemp then
   --[[*************************************************************************
-   * OPENTHERM ROOM TEMPERATURE EVENT
+   * RTC DELTA EVENT (via opentherm/read/outsideTemp)
    *
-   * Triggered immediately when Home Assistant publishes a new room temperature
-   * via the HeishaMon OpenTherm MQTT interface. This ensures the RTC shift is
-   * recalculated as soon as new data arrives, without waiting for the next
-   * timer cycle.
+   * Triggered when Home Assistant publishes the pre-computed RTC delta to the
+   * HeishaMon OpenTherm MQTT interface. The delta = room_temp - room_setpoint
+   * (positive = room too warm, negative = room too cold).
+   *
+   * Using ?outsideTemp as the carrier because mqttOTCallback handles this topic
+   * and fires rules_event_cb. ?roomTemp is hardware-only and does not trigger
+   * rules events without a physical OpenTherm bus.
+   *
+   * HA publishes every 5 minutes and on every room temp / setpoint change.
+   * This ensures RTC shift is recalculated as soon as new data arrives.
    *************************************************************************]]
   calculateRTC();
 end

@@ -156,12 +156,12 @@ views:
                 name: Z1 Water
                 icon: mdi:water-thermometer
 
-              # Room temp / setpoint — requires MQTT sensors from sensors.yaml
-              - entity: sensor.climate_manager_room_temp
+              # Room temp / setpoint (HA-native sensors, no OT hardware needed)
+              - entity: sensor.climate_manager_room_sensor_temp
                 name: Room Temp
                 icon: mdi:home-thermometer
 
-              - entity: sensor.climate_manager_room_setpoint_received
+              - entity: number.climate_manager_room_setpoint_target
                 name: Room Setpoint
                 icon: mdi:home-thermometer-outline
 
@@ -351,11 +351,11 @@ views:
           - type: entities
             title: RTC Inputs & Correction
             entities:
-              - entity: sensor.climate_manager_room_temp
+              - entity: sensor.climate_manager_room_sensor_temp
                 name: Room Temperature (measured)
                 icon: mdi:home-thermometer
 
-              - entity: sensor.climate_manager_room_setpoint_received
+              - entity: number.climate_manager_room_setpoint_target
                 name: Room Setpoint (target)
                 icon: mdi:home-thermometer-outline
 
@@ -372,12 +372,14 @@ views:
             content: >
               ### Room Temperature Control
 
-              Room: **{{ states('sensor.climate_manager_room_temp') }}°C**
-              vs setpoint **{{ states('sensor.climate_manager_room_setpoint_received') }}°C**
+              Room: **{{ states('sensor.climate_manager_room_sensor_temp') }}°C**
+              vs setpoint **{{ states('number.climate_manager_room_setpoint_target') }}°C**
 
               Delta: **{{ states('sensor.climate_manager_rtc_delta') }}°C**
 
               RTC correction: **{{ states('sensor.climate_manager_rtc_correction') }}°C**
+
+              RTC delta is computed in Home Assistant and sent to HeishaMon via `opentherm/read/outsideTemp`.
 
               > Positive delta = room is warmer than target → RTC reduces setpoint.
               > Negative delta = room is cooler → RTC increases setpoint.
@@ -708,22 +710,24 @@ views:
               OpenTherm status is **not published to MQTT** — it cannot be checked automatically.
               Verify it manually:
 
-              1. HeishaMon web UI → **Settings** → confirm **OpenTherm** is enabled
-              2. After enabling, run the **HeishaMon: Sync room temperature** automation once manually
-              3. Check `sensor.climate_manager_room_temp` below — if it shows a value, OpenTherm is working
+              1. HeishaMon web UI → **Settings** → confirm **OpenTherm** is **enabled**
+              2. No physical OpenTherm hardware is required — only the MQTT interface
+              3. HA computes RTC delta (room_temp − setpoint) and publishes to `opentherm/read/outsideTemp`
+              4. HeishaMon rules read `?outsideTemp` as the pre-computed delta
+              5. Set `#enableRTC = 1` in the rules to activate
 
           - type: entities
             title: OpenTherm / RTC Status (inferred)
             show_header_toggle: false
             entities:
-              # If this sensor has a value, OpenTherm is enabled and HA → HeishaMon RTC path works.
-              # If unavailable, check HeishaMon Settings → OpenTherm and rerun the sync automation.
-              - entity: sensor.climate_manager_room_temp
-                name: "Room Temp received by HeishaMon  (must have value for RTC)"
+              # RTC delta is published to opentherm/read/outsideTemp by HA every 5 min + on change.
+              # If room sensor temp is available, the RTC path is active.
+              - entity: sensor.climate_manager_room_sensor_temp
+                name: "Room Temp (source for RTC delta)"
                 icon: mdi:home-thermometer
 
-              - entity: sensor.climate_manager_room_setpoint_received
-                name: "Room Setpoint received by HeishaMon  (must have value for RTC)"
+              - entity: number.climate_manager_room_setpoint_target
+                name: "Room Setpoint (source for RTC delta)"
                 icon: mdi:home-thermometer-outline
 
           - type: markdown
@@ -787,8 +791,8 @@ views:
                 name: Z1 Heat Request (last update)
                 icon: mdi:target
 
-              - entity: sensor.climate_manager_room_temp
-                name: Room Temp (MQTT echo, last update)
+              - entity: sensor.climate_manager_room_sensor_temp
+                name: Room Temp (RTC source, last update)
                 icon: mdi:home-thermometer
 
           - type: markdown
@@ -800,8 +804,8 @@ views:
                  and confirm messages arrive every ~10 seconds.
               3. If no messages: check your HeishaMon device is online and the MQTT broker
                  (Mosquitto) is running. Restart the HeishaMon device if needed.
-              4. If room temp sensors are stale: verify the **HeishaMon: Sync room temperature**
-                 automation is enabled and has run recently.
+              4. If room sensor is stale: verify a room sensor entity is configured in the
+                 Settings tab and that it is reporting values.
 
               > HeishaMon publishes all heat pump data every ~10 seconds via MQTT.
               > The HA integration polls these topics and updates sensor states in near real-time.

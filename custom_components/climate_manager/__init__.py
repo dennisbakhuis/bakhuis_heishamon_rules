@@ -26,8 +26,7 @@ from homeassistant.helpers.event import (
 )
 
 from .const import (
-    CMD_OT_ROOM_SETPOINT,
-    CMD_OT_ROOM_TEMP,
+    CMD_OT_RTC_DELTA,
     CONF_MQTT_BASE,
     CONF_ROOM_SENSOR,
     DOMAIN,
@@ -50,11 +49,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Forward setup to all platforms
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
-    # --- Automation 1: Room temp sync ---
-    async def _publish_room_temps(_event_or_time: object = None) -> None:
-        """Publish room temperature and setpoint to MQTT opentherm topics."""
-        # Prefer live text entity value; fall back to config entry
+    # --- Automation 1: RTC delta publisher ---
+    async def _publish_rtc_delta(_now: object = None) -> None:
+        """Publish pre-computed RTC delta to opentherm/read/outsideTemp.
+
+        The delta = actual_room_temp - room_setpoint (positive = too warm, negative = too cold).
+        HeishaMon rules read ?outsideTemp as the pre-computed delta.
+        No physical OpenTherm hardware needed — only OT must be enabled in HeishaMon settings.
+        """
+        # Get room sensor entity from text entity (live value)
         text_state = hass.states.get("text.climate_manager_room_sensor_entity")
+        room_sensor = ""
         if text_state and text_state.state not in ("unknown", "unavailable", ""):
             room_sensor = text_state.state.strip()
         else:
@@ -62,51 +67,38 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 entry.options.get(CONF_ROOM_SENSOR) or entry.data.get(CONF_ROOM_SENSOR, "")
             ) or ""
 
-        # Get room temperature from configured sensor or from the echo sensor
-        if room_sensor:
-            state = hass.states.get(room_sensor)
-            if state and state.state not in ("unknown", "unavailable"):
-                try:
-                    room_temp = float(state.state)
-                    await mqtt_integration.async_publish(
-                        hass,
-                        f"{mqtt_base}/{CMD_OT_ROOM_TEMP}",
-                        str(room_temp),
-                    )
-                except (ValueError, TypeError):
-                    pass
+        if not room_sensor:
+            return  # no room sensor configured, nothing to publish
 
-        # Get setpoint from number entity
+        room_state = hass.states.get(room_sensor)
         setpoint_state = hass.states.get("number.climate_manager_room_setpoint_target")
-        if setpoint_state and setpoint_state.state not in ("unknown", "unavailable"):
-            try:
-                setpoint = float(setpoint_state.state)
-                await mqtt_integration.async_publish(
-                    hass,
-                    f"{mqtt_base}/{CMD_OT_ROOM_SETPOINT}",
-                    str(setpoint),
-                )
-            except (ValueError, TypeError):
-                pass
 
-    # Track the text entity so we re-publish whenever the configured room sensor entity ID changes
-    cancel_room_text = async_track_state_change_event(
+        if (
+            room_state is None
+            or room_state.state in ("unknown", "unavailable")
+            or setpoint_state is None
+            or setpoint_state.state in ("unknown", "unavailable")
+        ):
+            return
+
+        try:
+            delta = float(room_state.state) - float(setpoint_state.state)
+        except (ValueError, TypeError):
+            return
+
+        topic = f"{mqtt_base}/{CMD_OT_RTC_DELTA}"
+        await mqtt_integration.async_publish(hass, topic, f"{delta:.2f}", retain=False)
+
+    # Publish delta immediately whenever room temp or setpoint changes
+    cancel_rtc = async_track_state_change_event(
         hass,
-        ["text.climate_manager_room_sensor_entity"],
-        lambda e: hass.async_create_task(_publish_room_temps(e)),
+        ["sensor.climate_manager_room_sensor_temp", "number.climate_manager_room_setpoint_target"],
+        lambda _event: hass.async_create_task(_publish_rtc_delta()),
     )
-    hass.data[DOMAIN][entry.entry_id]["listeners"].append(cancel_room_text)
+    hass.data[DOMAIN][entry.entry_id]["listeners"].append(cancel_rtc)
 
-    # Track setpoint state changes
-    cancel_setpoint = async_track_state_change_event(
-        hass,
-        ["number.climate_manager_room_setpoint_target"],
-        lambda e: hass.async_create_task(_publish_room_temps(e)),
-    )
-    hass.data[DOMAIN][entry.entry_id]["listeners"].append(cancel_setpoint)
-
-    # Keepalive: publish every 5 minutes
-    cancel_keepalive = async_track_time_interval(hass, _publish_room_temps, timedelta(minutes=5))
+    # Keepalive: re-publish every 5 minutes
+    cancel_keepalive = async_track_time_interval(hass, _publish_rtc_delta, timedelta(minutes=5))
     hass.data[DOMAIN][entry.entry_id]["listeners"].append(cancel_keepalive)
 
     # --- Automation 2: Compressor tracker ---

@@ -132,6 +132,13 @@ Full instructions: [`src/heating_manager/README.md`](src/heating_manager/README.
    into your existing automations file. Update the placeholder entity ID for your
    room temperature sensor.
 
+   > **Note:** `automations.yaml` contains two automations:
+   > - **Room temp sync** — publishes your room temperature and setpoint to HeishaMon
+   >   via MQTT. This is what the RTC feature in the rules reads. It has no effect
+   >   until the rules are deployed in Phase 4, but set it up now so it's ready.
+   > - **Compressor start tracker** — records when the compressor starts so the
+   >   dashboard can display soft-start progress. Purely for monitoring.
+
 5. **Restart HA**
 
 6. **Import the dashboard** — Settings → Dashboards → Add Dashboard →

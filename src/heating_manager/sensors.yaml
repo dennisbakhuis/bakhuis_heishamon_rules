@@ -1,18 +1,271 @@
 # ============================================================
-# sensors.yaml — Template & MQTT Sensor Definitions
-# for Heating Manager Dashboard (Analysis tab)
+# sensors.yaml — All Sensor Definitions for Heating Manager
 #
 # INSTRUCTIONS:
 #   Two blocks below need to be added to configuration.yaml:
 #
-#   1. TEMPLATE SENSORS — add under `template:` → `sensor:`
-#   2. MQTT SENSORS     — add under `mqtt:`    → `sensor:`
+#   1. MQTT SENSORS (switch + sensors) — add under `mqtt:` in configuration.yaml
+#   2. TEMPLATE SENSORS               — add under `template:` → `sensor:`
 #
 #   Then restart Home Assistant (or reload template sensors
 #   via Developer Tools → YAML → Template entities).
 #
+# All MQTT topics follow the pattern: {mqtt_base}/{topic}
+# Default mqtt_base: panasonic_heat_pump
+# To use a different base topic, change the prefix in all
+# state_topic / command_topic / state_topic values below.
+# topics.yaml documents every topic for reference.
+#
 # See README.md for full step-by-step installation guide.
 # ============================================================
+
+
+# ============================================================
+# MQTT SWITCH + SENSORS
+#
+# Add to configuration.yaml under `mqtt:`:
+#
+#   mqtt:
+#     switch:
+#       ...
+#     sensor:
+#       ...
+#
+# If you already have an `mqtt:` key, merge the switch: and
+# sensor: lists into your existing block.
+#
+# To use a different MQTT base topic (e.g. my_heat_pump),
+# replace "panasonic_heat_pump" everywhere in this section.
+# ============================================================
+
+# mqtt:
+#
+#   # ── HP ON/OFF MASTER SWITCH ────────────────────────────────
+#   switch:
+#     - name: "Heishamon Heat Pump"
+#       unique_id: heishamon_heatpump
+#       state_topic: "panasonic_heat_pump/main/Heatpump_State"
+#       command_topic: "panasonic_heat_pump/commands/SetHeatpump"
+#       payload_on: "1"
+#       payload_off: "0"
+#       state_on: "1"
+#       state_off: "0"
+#       icon: mdi:heat-pump
+#
+#   sensor:
+#
+#     # ── HP STATUS ──────────────────────────────────────────────
+#     - name: "Heishamon Heatpump State"
+#       unique_id: heishamon_heatpump_state
+#       state_topic: "panasonic_heat_pump/main/Heatpump_State"
+#       icon: mdi:power
+#
+#     - name: "Heishamon Operating Mode"
+#       unique_id: heishamon_operating_mode
+#       state_topic: "panasonic_heat_pump/main/Operating_Mode_State"
+#       icon: mdi:cog-outline
+#
+#     - name: "Heishamon Defrosting State"
+#       unique_id: heishamon_defrosting_state
+#       state_topic: "panasonic_heat_pump/main/Defrosting_State"
+#       icon: mdi:snowflake-melt
+#
+#     - name: "Heishamon Quiet Mode"
+#       unique_id: heishamon_quiet_mode
+#       state_topic: "panasonic_heat_pump/main/Quiet_Mode_Level"
+#       icon: mdi:volume-off
+#
+#     # ── TEMPERATURES ───────────────────────────────────────────
+#     - name: "Heishamon Outside Temp"
+#       unique_id: heishamon_outside_temp
+#       state_topic: "panasonic_heat_pump/main/Outside_Temp"
+#       unit_of_measurement: "°C"
+#       device_class: temperature
+#       state_class: measurement
+#       icon: mdi:thermometer
+#
+#     - name: "Heishamon Outside Pipe Temp"
+#       unique_id: heishamon_outside_pipe_temp
+#       state_topic: "panasonic_heat_pump/main/Outside_Pipe_Temp"
+#       unit_of_measurement: "°C"
+#       device_class: temperature
+#       state_class: measurement
+#       icon: mdi:pipe
+#
+#     - name: "Heishamon Inlet Temp"
+#       unique_id: heishamon_inlet_temp
+#       state_topic: "panasonic_heat_pump/main/Main_Inlet_Temp"
+#       unit_of_measurement: "°C"
+#       device_class: temperature
+#       state_class: measurement
+#       icon: mdi:thermometer-water
+#
+#     - name: "Heishamon Outlet Temp"
+#       unique_id: heishamon_outlet_temp
+#       state_topic: "panasonic_heat_pump/main/Main_Outlet_Temp"
+#       unit_of_measurement: "°C"
+#       device_class: temperature
+#       state_class: measurement
+#       icon: mdi:thermometer-high
+#
+#     - name: "Heishamon Target Temp"
+#       unique_id: heishamon_target_temp
+#       state_topic: "panasonic_heat_pump/main/Main_Target_Temp"
+#       unit_of_measurement: "°C"
+#       device_class: temperature
+#       state_class: measurement
+#       icon: mdi:target
+#
+#     - name: "Heishamon Z1 Heat Request"
+#       unique_id: heishamon_z1_heat_request
+#       state_topic: "panasonic_heat_pump/main/Z1_Heat_Request_Temp"
+#       unit_of_measurement: "°C"
+#       device_class: temperature
+#       state_class: measurement
+#       icon: mdi:target
+#
+#     - name: "Heishamon Z1 Water Temp"
+#       unique_id: heishamon_z1_water_temp
+#       state_topic: "panasonic_heat_pump/main/Z1_Water_Temp"
+#       unit_of_measurement: "°C"
+#       device_class: temperature
+#       state_class: measurement
+#       icon: mdi:water-thermometer
+#
+#     # ── COMPRESSOR & PUMP ──────────────────────────────────────
+#     - name: "Heishamon Compressor Freq"
+#       unique_id: heishamon_compressor_freq
+#       state_topic: "panasonic_heat_pump/main/Compressor_Freq"
+#       unit_of_measurement: "Hz"
+#       state_class: measurement
+#       icon: mdi:sine-wave
+#
+#     - name: "Heishamon Pump Flow"
+#       unique_id: heishamon_pump_flow
+#       state_topic: "panasonic_heat_pump/main/Pump_Flow"
+#       unit_of_measurement: "l/min"
+#       state_class: measurement
+#       icon: mdi:water-pump
+#
+#     - name: "Heishamon Pump Speed"
+#       unique_id: heishamon_pump_speed
+#       state_topic: "panasonic_heat_pump/main/Pump_Speed"
+#       unit_of_measurement: "RPM"
+#       state_class: measurement
+#       icon: mdi:speedometer
+#
+#     - name: "Heishamon Max Pump Duty"
+#       unique_id: heishamon_max_pump_duty
+#       state_topic: "panasonic_heat_pump/main/Max_Pump_Duty"
+#       state_class: measurement
+#       icon: mdi:pump
+#
+#     - name: "Heishamon 3way Valve"
+#       unique_id: heishamon_3way_valve
+#       state_topic: "panasonic_heat_pump/main/ThreeWay_Valve_State"
+#       icon: mdi:valve
+#
+#     # ── POWER ──────────────────────────────────────────────────
+#     - name: "Heishamon Heat Power Produced"
+#       unique_id: heishamon_heat_power_produced
+#       state_topic: "panasonic_heat_pump/main/Heat_Power_Production"
+#       unit_of_measurement: "W"
+#       device_class: power
+#       state_class: measurement
+#       icon: mdi:radiator
+#
+#     - name: "Heishamon Heat Power Consumed"
+#       unique_id: heishamon_heat_power_consumed
+#       state_topic: "panasonic_heat_pump/main/Heat_Power_Consumption"
+#       unit_of_measurement: "W"
+#       device_class: power
+#       state_class: measurement
+#       icon: mdi:lightning-bolt
+#
+#     # ── OPERATIONAL COUNTERS ───────────────────────────────────
+#     - name: "Heishamon Operating Hours"
+#       unique_id: heishamon_operating_hours
+#       state_topic: "panasonic_heat_pump/main/Operations_Hours"
+#       unit_of_measurement: "h"
+#       state_class: total_increasing
+#       icon: mdi:clock-outline
+#
+#     - name: "Heishamon Start Stop Counter"
+#       unique_id: heishamon_start_stop_counter
+#       state_topic: "panasonic_heat_pump/main/Operations_Counter"
+#       state_class: total_increasing
+#       icon: mdi:counter
+#
+#     - name: "Heishamon Last Error"
+#       unique_id: heishamon_last_error
+#       state_topic: "panasonic_heat_pump/main/Error"
+#       icon: mdi:alert-circle-outline
+#
+#     # ── FAN SPEEDS ─────────────────────────────────────────────
+#     - name: "Heishamon Fan1 Speed"
+#       unique_id: heishamon_fan1_speed
+#       state_topic: "panasonic_heat_pump/main/Fan1_Motor_Speed"
+#       unit_of_measurement: "RPM"
+#       state_class: measurement
+#       icon: mdi:fan
+#
+#     - name: "Heishamon Fan2 Speed"
+#       unique_id: heishamon_fan2_speed
+#       state_topic: "panasonic_heat_pump/main/Fan2_Motor_Speed"
+#       unit_of_measurement: "RPM"
+#       state_class: measurement
+#       icon: mdi:fan
+#
+#     - name: "Heishamon Compressor Current"
+#       unique_id: heishamon_compressor_current
+#       state_topic: "panasonic_heat_pump/main/Compressor_Current"
+#       unit_of_measurement: "A"
+#       device_class: current
+#       state_class: measurement
+#       icon: mdi:current-ac
+#
+#     # ── HP CONFIGURATION SETTINGS (Prerequisites Check) ────────
+#     - name: "Heishamon Heating Mode"
+#       unique_id: heishamon_heating_mode
+#       state_topic: "panasonic_heat_pump/main/Heating_Mode"
+#       # 0 = Compensation Curve (rules won't work correctly)
+#       # 1 = Direct             (required for rules)
+#       icon: mdi:thermometer-check
+#
+#     - name: "Heishamon Z1 Sensor Settings"
+#       unique_id: heishamon_z1_sensor_settings
+#       state_topic: "panasonic_heat_pump/main/Z1_Sensor_Settings"
+#       # 0 = Water sensor (required for direct temp control)
+#       # 1 = External thermostat
+#       # 2 = Internal thermostat / thermistor
+#       icon: mdi:water-thermometer
+#
+#     - name: "Heishamon Pump Flowrate Mode"
+#       unique_id: heishamon_pump_flowrate_mode
+#       state_topic: "panasonic_heat_pump/main/Pump_Flowrate_Mode"
+#       # 0 = DeltaT (recommended for pump duty control)
+#       # 1 = Maximum flow (J-series only)
+#       icon: mdi:pump
+#
+#     # ── OPENTHERM ECHO (RTC round-trip confirmation) ───────────
+#     # HA publishes to opentherm/read/ topics via the RTC automation.
+#     # HeishaMon echoes back on opentherm/write/ topics — these sensors
+#     # confirm that the round-trip worked.
+#     - name: "Heishamon Room Temp"
+#       unique_id: heishamon_room_temp
+#       state_topic: "panasonic_heat_pump/opentherm/write/roomTemp"
+#       unit_of_measurement: "°C"
+#       device_class: temperature
+#       state_class: measurement
+#       icon: mdi:home-thermometer
+#
+#     - name: "Heishamon Room Setpoint Received"
+#       unique_id: heishamon_room_setpoint_received
+#       state_topic: "panasonic_heat_pump/opentherm/write/roomTempSet"
+#       unit_of_measurement: "°C"
+#       device_class: temperature
+#       state_class: measurement
+#       icon: mdi:home-thermometer-outline
 
 
 # ============================================================
@@ -52,7 +305,7 @@ template:
         state_class: measurement
         icon: mdi:chart-bell-curve
         state: >
-          {% set t = states('sensor.aquarea_outside_ambient_temperature') | float(999) %}
+          {% set t = states('sensor.heishamon_outside_temp') | float(999) %}
           {% if t == 999 %}
             unavailable
           {% elif t <= -7 %}
@@ -65,7 +318,7 @@ template:
             {{ [[((28 + (15 - t) * 5 / 10) | float | ceil), 20] | max, 42] | min }}
           {% endif %}
         availability: >
-          {{ states('sensor.aquarea_outside_ambient_temperature') not in ['unknown', 'unavailable'] }}
+          {{ states('sensor.heishamon_outside_temp') not in ['unknown', 'unavailable'] }}
 
       # ── NET SHIFT ────────────────────────────────────────────────────────
       # Difference between actual Z1 request and WAR-only setpoint.
@@ -79,7 +332,7 @@ template:
         state_class: measurement
         icon: mdi:delta
         state: >
-          {% set actual = states('sensor.aquarea_z1_heat_request_temperature') | float(-999) %}
+          {% set actual = states('sensor.heishamon_z1_heat_request') | float(-999) %}
           {% set war = states('sensor.heishamon_war_setpoint') | float(-999) %}
           {% if actual == -999 or war == -999 %}
             unavailable
@@ -87,7 +340,7 @@ template:
             {{ (actual - war) | round(1) }}
           {% endif %}
         availability: >
-          {{ states('sensor.aquarea_z1_heat_request_temperature') not in ['unknown', 'unavailable']
+          {{ states('sensor.heishamon_z1_heat_request') not in ['unknown', 'unavailable']
              and states('sensor.heishamon_war_setpoint') not in ['unknown', 'unavailable'] }}
 
       # ── RTC DELTA ────────────────────────────────────────────────────────
@@ -102,16 +355,16 @@ template:
         state_class: measurement
         icon: mdi:delta
         state: >
-          {% set room = states('sensor.heishamon_room_temperature') | float(-999) %}
-          {% set setp = states('sensor.heishamon_room_setpoint') | float(-999) %}
+          {% set room = states('sensor.heishamon_room_temp') | float(-999) %}
+          {% set setp = states('sensor.heishamon_room_setpoint_received') | float(-999) %}
           {% if room == -999 or setp == -999 %}
             unavailable
           {% else %}
             {{ (room - setp) | round(2) }}
           {% endif %}
         availability: >
-          {{ states('sensor.heishamon_room_temperature') not in ['unknown', 'unavailable']
-             and states('sensor.heishamon_room_setpoint') not in ['unknown', 'unavailable'] }}
+          {{ states('sensor.heishamon_room_temp') not in ['unknown', 'unavailable']
+             and states('sensor.heishamon_room_setpoint_received') not in ['unknown', 'unavailable'] }}
 
       # ── RTC CORRECTION STEP ───────────────────────────────────────────────
       # Lookup table replicating the HeishaMon rules RTC correction:
@@ -162,7 +415,7 @@ template:
         state_class: measurement
         icon: mdi:timer-outline
         state: >
-          {% set freq = states('sensor.aquarea_compressor_frequency') | float(0) %}
+          {% set freq = states('sensor.heishamon_compressor_freq') | float(0) %}
           {% if freq <= 10 %}
             0
           {% else %}
@@ -196,7 +449,7 @@ template:
           {% set t = states('sensor.heishamon_compressor_run_seconds') | float(0) %}
           {% set duration = 780 %}
           {% set max_shift = 5 %}
-          {% set outdoor = states('sensor.aquarea_outside_ambient_temperature') | float(99) %}
+          {% set outdoor = states('sensor.heishamon_outside_temp') | float(99) %}
           {% if outdoor > 8 or t <= 0 or t >= duration %}
             0
           {% else %}
@@ -215,84 +468,29 @@ template:
         icon: mdi:progress-clock
         state: >
           {% set t = states('sensor.heishamon_compressor_run_seconds') | float(0) %}
-          {% set outdoor = states('sensor.aquarea_outside_ambient_temperature') | float(99) %}
+          {% set outdoor = states('sensor.heishamon_outside_temp') | float(99) %}
           {% if outdoor > 8 %}
             100
           {% else %}
             {{ [(t / 780 * 100) | int, 100] | min }}
           {% endif %}
 
-
-# ============================================================
-# MQTT SENSORS (System prerequisites — HP settings)
-#
-# These three topics expose HP configuration settings that the
-# prerequisites check in the Settings tab reads.
-# The heishamon.yaml integration may or may not include them
-# depending on version — add these if the entities are missing.
-#
-# Add to configuration.yaml → mqtt: → sensor:
-#
-# mqtt:
-#   sensor:
-#
-#     - name: "Aquarea Heating Mode"
-#       unique_id: aquarea_heating_mode
-#       state_topic: "panasonic_heat_pump/main/Heating_Mode"
-#       # 0 = Compensation Curve (rules won't work correctly)
-#       # 1 = Direct             (required for rules)
-#       icon: mdi:thermometer-check
-#
-#     - name: "Aquarea Z1 Sensor Settings"
-#       unique_id: aquarea_z1_sensor_settings
-#       state_topic: "panasonic_heat_pump/main/Z1_Sensor_Settings"
-#       # 0 = Water sensor (required for direct temp control)
-#       # 1 = External thermostat
-#       # 2 = Internal thermostat / thermistor
-#       icon: mdi:water-thermometer
-#
-#     - name: "Aquarea Pump Flowrate Mode"
-#       unique_id: aquarea_pump_flowrate_mode
-#       state_topic: "panasonic_heat_pump/main/Pump_Flowrate_Mode"
-#       # 0 = DeltaT (recommended for pump duty control)
-#       # 1 = Maximum flow (J-series only)
-#       icon: mdi:pump
-
-
-# ============================================================
-# MQTT SENSORS (Room temperature via HeishaMon OpenTherm)
-#
-# Add to configuration.yaml under the existing `mqtt:` block:
-#
-#   mqtt:
-#     sensor:
-#       - name: "Heishamon Room Temperature"
-#         ...
-#
-# These sensors subscribe to the OpenTherm "write" topics —
-# HeishaMon echoes back the values it received from HA,
-# so these confirm the round-trip worked.
-# ============================================================
-
-# NOTE: These are NOT template sensors — they are mqtt platform sensors.
-# Paste the block below into configuration.yaml → mqtt: → sensor:
-#
-# mqtt:
-#   sensor:
-#
-#     - name: "Heishamon Room Temperature"
-#       unique_id: heishamon_room_temperature
-#       state_topic: "panasonic_heat_pump/opentherm/write/roomTemp"
-#       unit_of_measurement: "°C"
-#       device_class: temperature
-#       state_class: measurement
-#       # HA publishes to the read/ topic via the RTC automation.
-#       # HeishaMon echoes it back on the write/ topic.
-#       # This sensor reads that echo so you can verify receipt.
-#
-#     - name: "Heishamon Room Setpoint"
-#       unique_id: heishamon_room_setpoint
-#       state_topic: "panasonic_heat_pump/opentherm/write/roomTempSet"
-#       unit_of_measurement: "°C"
-#       device_class: temperature
-#       state_class: measurement
+      # ── HEAT COP ─────────────────────────────────────────────────────────
+      # Coefficient of Performance (heat only):
+      #   COP = heat_power_produced / heat_power_consumed
+      # Only meaningful when the HP is actively consuming power (> 50 W).
+      # ─────────────────────────────────────────────────────────────────────
+      - name: "Heishamon Heat COP"
+        unique_id: heishamon_heat_cop
+        state_class: measurement
+        icon: mdi:fire
+        availability: >
+          {{ states('sensor.heishamon_heat_power_consumed') not in ['unknown', 'unavailable'] }}
+        state: >
+          {% set produced = states('sensor.heishamon_heat_power_produced') | float(0) %}
+          {% set consumed = states('sensor.heishamon_heat_power_consumed') | float(0) %}
+          {% if consumed > 50 %}
+            {{ (produced / consumed) | round(2) }}
+          {% else %}
+            unavailable
+          {% endif %}

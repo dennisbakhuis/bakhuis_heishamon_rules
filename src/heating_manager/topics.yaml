@@ -1,0 +1,221 @@
+# ============================================================
+# topics.yaml — MQTT Topic Reference
+# Heating Manager for HeishaMon / Panasonic Aquarea
+#
+# This file documents all MQTT topics used by the Heating
+# Manager. It is NOT loaded by Home Assistant — it is
+# documentation and a single reference point.
+#
+# DEFAULT MQTT BASE: panasonic_heat_pump
+# If your HeishaMon uses a different base topic, change the
+# prefix in sensors.yaml and helpers.yaml.
+# ============================================================
+
+mqtt_base: panasonic_heat_pump
+
+# ── READ TOPICS (HeishaMon → MQTT → HA) ──────────────────────
+# HeishaMon publishes these every ~10 seconds.
+# All map to sensor.heishamon_<name> in sensors.yaml.
+
+read:
+
+  # HP status
+  - topic: main/Heatpump_State
+    entity: heishamon_heatpump_state
+    description: "HP on/off state (0=off, 1=on)"
+    type: binary
+
+  - topic: main/Operating_Mode_State
+    entity: heishamon_operating_mode
+    description: "Operating mode (0=Heat, 1=Cool, 2=Auto Heat, 3=DHW only, 4=Heat+DHW, 5=Cool+DHW)"
+    type: enum
+
+  - topic: main/Defrosting_State
+    entity: heishamon_defrosting_state
+    description: "Defrost active (0=off, 1=on)"
+    type: binary
+
+  - topic: main/Quiet_Mode_Level
+    entity: heishamon_quiet_mode
+    description: "Quiet mode level (0=off, 1-3=levels)"
+    type: integer
+
+  # Temperatures
+  - topic: main/Outside_Temp
+    entity: heishamon_outside_temp
+    description: "Outdoor ambient temperature (°C)"
+    unit: "°C"
+    device_class: temperature
+
+  - topic: main/Outside_Pipe_Temp
+    entity: heishamon_outside_pipe_temp
+    description: "Outdoor pipe temperature (°C)"
+    unit: "°C"
+    device_class: temperature
+
+  - topic: main/Main_Inlet_Temp
+    entity: heishamon_inlet_temp
+    description: "Main water inlet temperature (°C)"
+    unit: "°C"
+    device_class: temperature
+
+  - topic: main/Main_Outlet_Temp
+    entity: heishamon_outlet_temp
+    description: "Main water outlet temperature (°C)"
+    unit: "°C"
+    device_class: temperature
+
+  - topic: main/Main_Target_Temp
+    entity: heishamon_target_temp
+    description: "Main outlet water target (as confirmed by HP) (°C)"
+    unit: "°C"
+    device_class: temperature
+
+  - topic: main/Z1_Heat_Request_Temp
+    entity: heishamon_z1_heat_request
+    description: "Zone 1 heat request temperature — effective setpoint written by rules (°C)"
+    unit: "°C"
+    device_class: temperature
+
+  - topic: main/Z1_Water_Temp
+    entity: heishamon_z1_water_temp
+    description: "Zone 1 actual water temperature (°C)"
+    unit: "°C"
+    device_class: temperature
+
+  # Compressor & pump
+  - topic: main/Compressor_Freq
+    entity: heishamon_compressor_freq
+    description: "Compressor frequency (Hz) — proxy for HP load"
+    unit: "Hz"
+
+  - topic: main/Pump_Flow
+    entity: heishamon_pump_flow
+    description: "Water pump flow rate (l/min)"
+    unit: "l/min"
+
+  - topic: main/Pump_Speed
+    entity: heishamon_pump_speed
+    description: "Pump rotation speed (RPM)"
+    unit: "RPM"
+
+  - topic: main/Max_Pump_Duty
+    entity: heishamon_max_pump_duty
+    description: "Current max pump duty (set by rules)"
+    unit: ""
+
+  - topic: main/ThreeWay_Valve_State
+    entity: heishamon_3way_valve
+    description: "3-way valve position (0=Room, 1=DHW)"
+    type: binary
+
+  # Power
+  - topic: main/Heat_Power_Production
+    entity: heishamon_heat_power_produced
+    description: "Thermal heat power output (W)"
+    unit: "W"
+    device_class: power
+
+  - topic: main/Heat_Power_Consumption
+    entity: heishamon_heat_power_consumed
+    description: "Electrical heat power input (W)"
+    unit: "W"
+    device_class: power
+
+  # Operational counters
+  - topic: main/Operations_Hours
+    entity: heishamon_operating_hours
+    description: "Total compressor operating hours"
+    unit: "h"
+
+  - topic: main/Operations_Counter
+    entity: heishamon_start_stop_counter
+    description: "Total compressor start/stop count"
+    unit: ""
+
+  - topic: main/Error
+    entity: heishamon_last_error
+    description: "Last active error code from HP"
+    type: string
+
+  # Fan speeds
+  - topic: main/Fan1_Motor_Speed
+    entity: heishamon_fan1_speed
+    description: "Fan 1 motor speed (RPM)"
+    unit: "RPM"
+
+  - topic: main/Fan2_Motor_Speed
+    entity: heishamon_fan2_speed
+    description: "Fan 2 motor speed (RPM)"
+    unit: "RPM"
+
+  - topic: main/Compressor_Current
+    entity: heishamon_compressor_current
+    description: "Compressor current draw (A)"
+    unit: "A"
+    device_class: current
+
+  # HP configuration settings (used by Prerequisites Check)
+  - topic: main/Heating_Mode
+    entity: heishamon_heating_mode
+    description: "Heating mode (0=compensation curve, 1=direct) — must be 1 for rules"
+    type: integer
+
+  - topic: main/Z1_Sensor_Settings
+    entity: heishamon_z1_sensor_settings
+    description: "Z1 sensor type (0=water, 1=ext thermostat, 2=int thermostat) — must be 0 for rules"
+    type: integer
+
+  - topic: main/Pump_Flowrate_Mode
+    entity: heishamon_pump_flowrate_mode
+    description: "Pump flow mode (0=DeltaT, 1=max flow) — 0 recommended"
+    type: integer
+
+# ── OPENTHERM READ TOPICS (HA → HeishaMon, for RTC) ──────────
+# HA publishes to these; HeishaMon echoes back on write/ topics.
+
+opentherm_write:
+  - topic: opentherm/read/roomTemp
+    description: "Publish actual room temperature to HeishaMon (float °C) — triggers RTC recalculation"
+    direction: "HA → HeishaMon"
+
+  - topic: opentherm/read/roomTempSet
+    description: "Publish room temperature setpoint to HeishaMon (float °C)"
+    direction: "HA → HeishaMon"
+
+opentherm_read:
+  - topic: opentherm/write/roomTemp
+    entity: heishamon_room_temp
+    description: "Room temperature echoed back by HeishaMon — confirms receipt"
+    unit: "°C"
+    device_class: temperature
+
+  - topic: opentherm/write/roomTempSet
+    entity: heishamon_room_setpoint_received
+    description: "Room setpoint echoed back by HeishaMon — confirms receipt"
+    unit: "°C"
+    device_class: temperature
+
+# ── WRITE TOPICS (HA → HeishaMon → HP) ───────────────────────
+# Published by HA to control the heat pump via HeishaMon.
+
+write:
+  - topic: commands/SetHeatpump
+    description: "HP on/off (0=off, 1=on)"
+    values: "0 or 1"
+    used_by: "switch.heishamon_heatpump (sensors.yaml)"
+
+  - topic: commands/SetZ1HeatRequestTemperature
+    description: "Zone 1 heat setpoint (20–42°C in direct mode)"
+    values: "integer °C"
+    used_by: "HeishaMon rules (rules file)"
+
+  - topic: commands/SetMaxPumpDuty
+    description: "Maximum pump duty (64–254)"
+    values: "integer"
+    used_by: "HeishaMon rules (rules file)"
+
+  - topic: commands/SetQuietMode
+    description: "Quiet mode level (0=off, 1-3)"
+    values: "0, 1, 2, or 3"
+    used_by: "input_select.heishamon_quietmode (heishamon.yaml)"

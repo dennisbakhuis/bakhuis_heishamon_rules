@@ -1,119 +1,262 @@
 # ============================================================
-# sensors.yaml — Optional MQTT & Template Sensor Definitions
-# for Heating Manager Dashboard
+# sensors.yaml — Template & MQTT Sensor Definitions
+# for Heating Manager Dashboard (Analysis tab)
 #
 # INSTRUCTIONS:
-#   Add the relevant blocks below to your configuration.yaml.
-#   Restart Home Assistant after adding.
+#   Two blocks below need to be added to configuration.yaml:
 #
-# See README.md for full context and step-by-step setup guide.
+#   1. TEMPLATE SENSORS — add under `template:` → `sensor:`
+#   2. MQTT SENSORS     — add under `mqtt:`    → `sensor:`
+#
+#   Then restart Home Assistant (or reload template sensors
+#   via Developer Tools → YAML → Template entities).
+#
+# See README.md for full step-by-step installation guide.
 # ============================================================
 
 
 # ============================================================
-# MQTT SENSORS (Room temperature for RTC via OpenTherm)
+# TEMPLATE SENSORS
 #
-# Add these under the existing `mqtt:` block in configuration.yaml,
-# inside the `sensor:` list. If you don't have an `mqtt:` block yet,
-# create one:
+# Add to configuration.yaml:
+#
+#   template:
+#     - sensor:
+#         - name: "Heishamon WAR Setpoint"
+#           ...
+#         - name: "Heishamon Net Shift"
+#           ...
+#         [etc.]
+#
+# All sensors below go inside the `- sensor:` list.
+# ============================================================
+
+template:
+  - sensor:
+
+      # ── WAR CURVE SETPOINT ────────────────────────────────────────────────
+      # Replicates the piecewise weather compensation curve from the rules:
+      #   Cold point:  outdoor −7°C → water 40°C
+      #   Mid point:   outdoor  5°C → water 33°C
+      #   Warm point:  outdoor 15°C → water 28°C
+      #   Below −7°C: clamp to 40. Above 15°C: clamp to 28.
+      #   Min setpoint: 20°C, Max: 42°C.
+      #
+      # Segment 1 (−7 to 5°C):  ceil(33 + (5 − outdoor) × 7/12)
+      # Segment 2 (5 to 15°C):  ceil(28 + (15 − outdoor) × 5/10)
+      # ─────────────────────────────────────────────────────────────────────
+      - name: "Heishamon WAR Setpoint"
+        unique_id: heishamon_war_setpoint
+        unit_of_measurement: "°C"
+        device_class: temperature
+        state_class: measurement
+        icon: mdi:chart-bell-curve
+        state: >
+          {% set t = states('sensor.aquarea_outside_ambient_temperature') | float(999) %}
+          {% if t == 999 %}
+            unavailable
+          {% elif t <= -7 %}
+            40
+          {% elif t >= 15 %}
+            28
+          {% elif t <= 5 %}
+            {{ [[((33 + (5 - t) * 7 / 12) | float | ceil), 20] | max, 42] | min }}
+          {% else %}
+            {{ [[((28 + (15 - t) * 5 / 10) | float | ceil), 20] | max, 42] | min }}
+          {% endif %}
+        availability: >
+          {{ states('sensor.aquarea_outside_ambient_temperature') not in ['unknown', 'unavailable'] }}
+
+      # ── NET SHIFT ────────────────────────────────────────────────────────
+      # Difference between actual Z1 request and WAR-only setpoint.
+      # Net shift = combined effect of RTC + soft-start + min-freq.
+      #   Positive: min-freq boost or cold compensation active.
+      #   Negative: RTC reducing heat (room warm) or soft-start ramping down.
+      # ─────────────────────────────────────────────────────────────────────
+      - name: "Heishamon Net Shift"
+        unique_id: heishamon_net_shift
+        unit_of_measurement: "°C"
+        state_class: measurement
+        icon: mdi:delta
+        state: >
+          {% set actual = states('sensor.aquarea_z1_heat_request_temperature') | float(-999) %}
+          {% set war = states('sensor.heishamon_war_setpoint') | float(-999) %}
+          {% if actual == -999 or war == -999 %}
+            unavailable
+          {% else %}
+            {{ (actual - war) | round(1) }}
+          {% endif %}
+        availability: >
+          {{ states('sensor.aquarea_z1_heat_request_temperature') not in ['unknown', 'unavailable']
+             and states('sensor.heishamon_war_setpoint') not in ['unknown', 'unavailable'] }}
+
+      # ── RTC DELTA ────────────────────────────────────────────────────────
+      # delta = roomTemp − roomSetpoint
+      # The sign tells us whether RTC should cool or boost the setpoint.
+      #   Positive: room is warmer than target → RTC reduces water setpoint.
+      #   Negative: room is cooler than target → RTC increases water setpoint.
+      # ─────────────────────────────────────────────────────────────────────
+      - name: "Heishamon RTC Delta"
+        unique_id: heishamon_rtc_delta
+        unit_of_measurement: "°C"
+        state_class: measurement
+        icon: mdi:delta
+        state: >
+          {% set room = states('sensor.heishamon_room_temperature') | float(-999) %}
+          {% set setp = states('sensor.heishamon_room_setpoint') | float(-999) %}
+          {% if room == -999 or setp == -999 %}
+            unavailable
+          {% else %}
+            {{ (room - setp) | round(2) }}
+          {% endif %}
+        availability: >
+          {{ states('sensor.heishamon_room_temperature') not in ['unknown', 'unavailable']
+             and states('sensor.heishamon_room_setpoint') not in ['unknown', 'unavailable'] }}
+
+      # ── RTC CORRECTION STEP ───────────────────────────────────────────────
+      # Lookup table replicating the HeishaMon rules RTC correction:
+      #   delta > 1.5   → −3
+      #   delta > 1.0   → −2
+      #   delta > 0.5   → −1
+      #   delta ≥ −0.2  →  0  (dead band — no change)
+      #   delta ≥ −0.4  → +1
+      #   delta ≥ −0.6  → +2
+      #   delta ≥ −2.0  → +3
+      #   delta < −2.0  → +4
+      # ─────────────────────────────────────────────────────────────────────
+      - name: "Heishamon RTC Correction"
+        unique_id: heishamon_rtc_correction
+        unit_of_measurement: "°C"
+        state_class: measurement
+        icon: mdi:thermometer-plus-outline
+        state: >
+          {% set d = states('sensor.heishamon_rtc_delta') | float(-999) %}
+          {% if d == -999 %}
+            0
+          {% elif d > 1.5 %}
+            -3
+          {% elif d > 1.0 %}
+            -2
+          {% elif d > 0.5 %}
+            -1
+          {% elif d >= -0.2 %}
+            0
+          {% elif d >= -0.4 %}
+            1
+          {% elif d >= -0.6 %}
+            2
+          {% elif d >= -2.0 %}
+            3
+          {% else %}
+            4
+          {% endif %}
+
+      # ── COMPRESSOR RUN SECONDS ────────────────────────────────────────────
+      # How many seconds the compressor has been running in this start.
+      # Resets to 0 when compressor frequency drops to ≤10 Hz (idle/off).
+      # Uses input_datetime.heishamon_compressor_start_time (set by automation).
+      # ─────────────────────────────────────────────────────────────────────
+      - name: "Heishamon Compressor Run Seconds"
+        unique_id: heishamon_compressor_run_seconds
+        unit_of_measurement: "s"
+        state_class: measurement
+        icon: mdi:timer-outline
+        state: >
+          {% set freq = states('sensor.aquarea_compressor_frequency') | float(0) %}
+          {% if freq <= 10 %}
+            0
+          {% else %}
+            {% set start = states('input_datetime.heishamon_compressor_start_time') %}
+            {% if start in ['unknown', 'unavailable', 'none'] %}
+              0
+            {% else %}
+              {% set elapsed = (now() - strptime(start, '%Y-%m-%d %H:%M:%S')).total_seconds() | int(0) %}
+              {{ [elapsed, 0] | max }}
+            {% endif %}
+          {% endif %}
+
+      # ── SOFT-START SHIFT ─────────────────────────────────────────────────
+      # Replicates HeishaMon soft-start formula:
+      #   shift = floor(5 × (sqrt(elapsed/780) − 1)), clamped to [−5, 0]
+      #
+      # Only active when:
+      #   - outdoor temp ≤ 8°C (cold enough to matter)
+      #   - compressor has been running > 0 seconds
+      #   - ramp not yet complete (elapsed < 780s)
+      #
+      # At t=0:   shift = floor(5 × (0 − 1)) = −5 (max boost)
+      # At t=780: shift = floor(5 × (1 − 1)) =  0 (ramp complete)
+      # ─────────────────────────────────────────────────────────────────────
+      - name: "Heishamon Soft-Start Shift"
+        unique_id: heishamon_softstart_shift
+        unit_of_measurement: "°C"
+        state_class: measurement
+        icon: mdi:thermometer-chevron-down
+        state: >
+          {% set t = states('sensor.heishamon_compressor_run_seconds') | float(0) %}
+          {% set duration = 780 %}
+          {% set max_shift = 5 %}
+          {% set outdoor = states('sensor.aquarea_outside_ambient_temperature') | float(99) %}
+          {% if outdoor > 8 or t <= 0 or t >= duration %}
+            0
+          {% else %}
+            {% set raw = (max_shift * ((t / duration) ** 0.5 - 1)) | float %}
+            {{ [[raw | int, -max_shift] | max, 0] | min }}
+          {% endif %}
+
+      # ── SOFT-START PROGRESS ───────────────────────────────────────────────
+      # Percentage through the 780-second soft-start ramp (0–100%).
+      # Returns 100 when outdoor temp > 8°C (inactive) or ramp complete.
+      # ─────────────────────────────────────────────────────────────────────
+      - name: "Heishamon Soft-Start Progress"
+        unique_id: heishamon_softstart_progress
+        unit_of_measurement: "%"
+        state_class: measurement
+        icon: mdi:progress-clock
+        state: >
+          {% set t = states('sensor.heishamon_compressor_run_seconds') | float(0) %}
+          {% set outdoor = states('sensor.aquarea_outside_ambient_temperature') | float(99) %}
+          {% if outdoor > 8 %}
+            100
+          {% else %}
+            {{ [(t / 780 * 100) | int, 100] | min }}
+          {% endif %}
+
+
+# ============================================================
+# MQTT SENSORS (Room temperature via HeishaMon OpenTherm)
+#
+# Add to configuration.yaml under the existing `mqtt:` block:
 #
 #   mqtt:
 #     sensor:
-#       - name: ...
+#       - name: "Heishamon Room Temperature"
+#         ...
 #
-# These sensors read the room temperature and setpoint that HA
-# publishes to HeishaMon via MQTT (see automations.yaml).
-# The topics below are HeishaMon's OpenTherm write topics.
+# These sensors subscribe to the OpenTherm "write" topics —
+# HeishaMon echoes back the values it received from HA,
+# so these confirm the round-trip worked.
 # ============================================================
 
-# Paste into configuration.yaml → mqtt: → sensor:
+# NOTE: These are NOT template sensors — they are mqtt platform sensors.
+# Paste the block below into configuration.yaml → mqtt: → sensor:
 #
-# - name: "Heishamon Room Temperature"
-#   unique_id: heishamon_room_temperature
-#   state_topic: "panasonic_heat_pump/opentherm/write/roomTemp"
-#   unit_of_measurement: "°C"
-#   device_class: temperature
-#   state_class: measurement
-#   # HA publishes to this topic via the RTC automation (see automations.yaml)
+# mqtt:
+#   sensor:
 #
-# - name: "Heishamon Room Setpoint"
-#   unique_id: heishamon_room_setpoint
-#   state_topic: "panasonic_heat_pump/opentherm/write/roomTempSet"
-#   unit_of_measurement: "°C"
-#   device_class: temperature
-#   state_class: measurement
-#   # HA publishes to this topic via the RTC automation (see automations.yaml)
-
-
-# ============================================================
-# TEMPLATE SENSORS (COP — Coefficient of Performance)
+#     - name: "Heishamon Room Temperature"
+#       unique_id: heishamon_room_temperature
+#       state_topic: "panasonic_heat_pump/opentherm/write/roomTemp"
+#       unit_of_measurement: "°C"
+#       device_class: temperature
+#       state_class: measurement
+#       # HA publishes to the read/ topic via the RTC automation.
+#       # HeishaMon echoes it back on the write/ topic.
+#       # This sensor reads that echo so you can verify receipt.
 #
-# The heishamon.yaml integration already defines these sensors:
-#   - sensor.heishamon_cop        (combined: heat + DHW + cool)
-#   - sensor.heishamon_heat_cop   (heat only)
-#   - sensor.heishamon_dhw_cop    (DHW only)
-#   - sensor.heishamon_cool_cop   (cool only)
-#
-# If you are NOT using the full heishamon.yaml package, you can
-# add the standalone version below instead.
-#
-# Paste into configuration.yaml → template: → sensor:
-# ============================================================
-
-# Standalone COP template sensor (only needed if NOT using heishamon.yaml)
-#
-# template:
-#   - sensor:
-#       - name: "Aquarea Heat COP"
-#         unique_id: aquarea_heat_cop_standalone
-#         unit_of_measurement: "x"
-#         icon: mdi:percent
-#         state: >
-#           {% set produced = states('sensor.aquarea_heat_power_produced') | float(0) %}
-#           {% set consumed = states('sensor.aquarea_heat_power_consumed') | float(0) %}
-#           {% if consumed > 0 %}
-#             {{ (produced / consumed) | round(2) }}
-#           {% else %}
-#             unavailable
-#           {% endif %}
-#         availability: >
-#           {{ is_number(states('sensor.aquarea_heat_power_produced')) and
-#              is_number(states('sensor.aquarea_heat_power_consumed')) }}
-#
-#       - name: "Aquarea Total Power Produced"
-#         unique_id: aquarea_total_power_produced_standalone
-#         unit_of_measurement: "W"
-#         device_class: power
-#         state_class: measurement
-#         state: >
-#           {{ states('sensor.aquarea_heat_power_produced') | float(0) +
-#              states('sensor.aquarea_dhw_power_produced') | float(0) +
-#              states('sensor.aquarea_cool_power_produced') | float(0) }}
-#
-#       - name: "Aquarea Total Power Consumed"
-#         unique_id: aquarea_total_power_consumed_standalone
-#         unit_of_measurement: "W"
-#         device_class: power
-#         state_class: measurement
-#         state: >
-#           {{ states('sensor.aquarea_heat_power_consumed') | float(0) +
-#              states('sensor.aquarea_dhw_power_consumed') | float(0) +
-#              states('sensor.aquarea_cool_power_consumed') | float(0) }}
-
-
-# ============================================================
-# NOTES
-#
-# If you are using the full heishamon.yaml integration package,
-# the following sensors are already defined for you:
-#
-#   sensor.heishamon_cop            Combined COP
-#   sensor.heishamon_heat_cop       Heat-only COP
-#   sensor.heishamon_dhw_cop        DHW-only COP
-#   sensor.heishamon_cool_cop       Cool-only COP
-#   sensor.heishamon_power_produced Combined power produced (W)
-#   sensor.heishamon_power_consumed Combined power consumed (W)
-#
-# The dashboard uses these entity IDs. If your instance uses
-# different IDs, update dashboard.yaml accordingly.
-# ============================================================
+#     - name: "Heishamon Room Setpoint"
+#       unique_id: heishamon_room_setpoint
+#       state_topic: "panasonic_heat_pump/opentherm/write/roomTempSet"
+#       unit_of_measurement: "°C"
+#       device_class: temperature
+#       state_class: measurement

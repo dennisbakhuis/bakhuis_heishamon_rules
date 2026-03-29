@@ -2,28 +2,41 @@
 # Heating Manager — Home Assistant Lovelace Dashboard
 # For Panasonic Aquarea via HeishaMon
 #
+# Three views:
+#   1. Monitor  — live status, temperatures, power, operational stats
+#   2. Analysis — WAR curve, RTC, soft-start breakdown, setpoint history
+#   3. Settings — room setpoint slider, direct HP controls, MQTT diagnostics
+#
 # Built-in cards only — no HACS / custom cards required.
 # See README.md for installation instructions.
 #
 # Entity IDs are based on the standard HeishaMon HA integration
 # (heishamon.yaml). Adjust any entity_id prefix if your HA
 # instance generated different names during first import.
+#
+# Template sensors required for View 2 are in sensors.yaml.
+# Input helpers required for View 3 are in helpers.yaml.
 # ============================================================
 
 title: Heating Manager
 views:
-  - title: Heat Pump
-    path: heat-pump
+
+  # ============================================================
+  # VIEW 1 — MONITOR
+  # Live operational overview: status, temperatures, power, stats.
+  # ============================================================
+  - title: Monitor
+    path: monitor
     icon: mdi:heat-pump
     badges: []
     cards:
 
-      # ===========================================================
+      # ----------------------------------------------------------
       # SECTION 1 — STATUS BAR
-      # Quick at-a-glance indicators across the top of the dashboard.
+      # Quick at-a-glance indicators across the top.
       # Shows whether the pump is running, current operating mode,
       # defrost activity, quiet mode, and compressor load.
-      # ===========================================================
+      # ----------------------------------------------------------
       - type: vertical-stack
         cards:
           - type: markdown
@@ -37,10 +50,6 @@ views:
                 entity: sensor.aquarea_power_state
                 name: HP State
                 icon: mdi:power
-                # Optional Mushroom alternative (requires HACS):
-                # type: custom:mushroom-entity-card
-                # entity: sensor.aquarea_power_state
-                # name: HP State
 
               # Operating mode (Heat / DHW / Heat+DHW / etc.)
               - type: entity
@@ -53,8 +62,6 @@ views:
                 entity: sensor.aquarea_defrost_state
                 name: Defrost
                 icon: mdi:snowflake-melt
-                # Note: HA will show "Active" / "Inactive" (mapped in heishamon.yaml)
-                # To highlight red when active, use a conditional card (see below)
 
               # Quiet mode level (Off / 1 / 2 / 3 / Scheduled)
               - type: entity
@@ -67,9 +74,8 @@ views:
                 entity: sensor.aquarea_compressor_frequency
                 name: Compressor
                 icon: mdi:sine-wave
-                unit: Hz
 
-          # Defrost alert — only visible when defrost is active
+          # Defrost alert banner — only visible when defrost is active
           - type: conditional
             conditions:
               - entity: sensor.aquarea_defrost_state
@@ -78,18 +84,13 @@ views:
               type: markdown
               content: >
                 ⚠️ **Defrost cycle active** — heat output is temporarily reduced.
-              style: |
-                ha-card {
-                  background-color: var(--error-color, #db4437);
-                  color: white;
-                }
 
-      # ===========================================================
+      # ----------------------------------------------------------
       # SECTION 2 — TEMPERATURE OVERVIEW
       # Current measured temperatures across the system.
-      # Room temperature and setpoint require additional MQTT sensors
-      # — see README.md and sensors.yaml for setup instructions.
-      # ===========================================================
+      # Room temperature and setpoint require MQTT sensors —
+      # see sensors.yaml for setup.
+      # ----------------------------------------------------------
       - type: vertical-stack
         cards:
           - type: markdown
@@ -123,20 +124,19 @@ views:
                 name: Z1 Water
                 icon: mdi:water-thermometer
 
-              # These entities require MQTT sensor setup (see sensors.yaml)
+              # Room temp / setpoint — requires MQTT sensors from sensors.yaml
               - entity: sensor.heishamon_room_temperature
                 name: Room Temp
                 icon: mdi:home-thermometer
 
               - entity: sensor.heishamon_room_setpoint
-                name: Room Target
+                name: Room Setpoint
                 icon: mdi:home-thermometer-outline
 
-      # ===========================================================
-      # SECTION 3 — TEMPERATURE HISTORY GRAPH
-      # 24-hour trend of the key thermal values.
-      # Built-in history-graph card — no dependencies needed.
-      # ===========================================================
+      # ----------------------------------------------------------
+      # SECTION 3 — TEMPERATURE HISTORY (24h)
+      # Built-in history-graph — no dependencies needed.
+      # ----------------------------------------------------------
       - type: vertical-stack
         cards:
           - type: markdown
@@ -154,19 +154,15 @@ views:
               - entity: sensor.aquarea_outside_ambient_temperature
                 name: Outdoor
               - entity: sensor.aquarea_z1_heat_request_temperature
-                name: Z1 Target (Setpoint)
+                name: Z1 Heat Request
 
-      # ===========================================================
+      # ----------------------------------------------------------
       # SECTION 4 — POWER & EFFICIENCY
-      # Heat power produced and consumed, live COP, and power history.
+      # Heat power produced and consumed, live COP, power history.
       #
       # COP = Coefficient of Performance = heat_out / electricity_in
-      # A COP of 3.0 means 3 kWh of heat for every 1 kWh of electricity.
-      #
-      # sensor.heishamon_cop is the combined COP template sensor defined
-      # in heishamon.yaml (heat + DHW + cool). sensor.heishamon_heat_cop
-      # tracks heat-only COP.
-      # ===========================================================
+      # COP 3.0 = 3 kWh of heat per 1 kWh of electricity consumed.
+      # ----------------------------------------------------------
       - type: vertical-stack
         cards:
           - type: markdown
@@ -192,7 +188,6 @@ views:
                 name: Total Consumed
                 icon: mdi:transmission-tower
 
-              # COP template sensors from heishamon.yaml
               - entity: sensor.heishamon_cop
                 name: COP (all)
                 icon: mdi:percent
@@ -201,8 +196,6 @@ views:
                 name: COP (heat)
                 icon: mdi:fire
 
-          # COP markdown card — shows live value with context
-          # Uses the template sensor defined in heishamon.yaml
           - type: markdown
             title: Live Efficiency
             content: >
@@ -210,9 +203,8 @@ views:
 
               ### COP (Heat only): {{ states('sensor.heishamon_heat_cop') }} ×
 
-              > _COP > 3 is good. COP > 4 is excellent for floor heating._
+              > _COP > 3 is good for floor heating. COP > 4 is excellent._
 
-          # 24-hour power history graph
           - type: history-graph
             title: Power History (24h)
             hours_to_show: 24
@@ -222,83 +214,12 @@ views:
                 name: Heat Produced (W)
               - entity: sensor.aquarea_heat_power_consumed
                 name: Heat Consumed (W)
-              - entity: sensor.heishamon_power_produced
-                name: Total Produced (W)
-              - entity: sensor.heishamon_power_consumed
-                name: Total Consumed (W)
 
-      # ===========================================================
-      # SECTION 5 — HEISHAMON RULES STATE
-      # Reflects the calculated values driven by the rules engine
-      # running on HeishaMon. The Z1 heat request temperature IS
-      # the calculated setpoint output by the weather compensation
-      # or RTC rules. Pump flow, compressor freq, and valve state
-      # confirm the HP is acting on those rules.
-      #
-      # sensor.heishamon_room_temperature and
-      # sensor.heishamon_room_setpoint require MQTT sensors — see
-      # sensors.yaml and README.md for setup.
-      # ===========================================================
-      - type: vertical-stack
-        cards:
-          - type: markdown
-            content: "## 🔧 HeishaMon Rules State"
-
-          - type: entities
-            title: Calculated Setpoints & Rule Outputs
-            entities:
-              # Z1 heat request = effective setpoint calculated by rules
-              - entity: sensor.aquarea_z1_heat_request_temperature
-                name: Z1 Heat Request (Calculated Setpoint)
-                icon: mdi:thermometer-check
-
-              - entity: sensor.aquarea_z1_water_target_temperature
-                name: Z1 Water Target
-                icon: mdi:target
-
-              # Room temp and setpoint (RTC — needs MQTT sensors, see README)
-              - entity: sensor.heishamon_room_temperature
-                name: Room Temperature (RTC input)
-                icon: mdi:home-thermometer
-
-              - entity: sensor.heishamon_room_setpoint
-                name: Room Setpoint (RTC target)
-                icon: mdi:home-thermometer-outline
-
-              - type: divider
-
-              # HP response metrics — confirm rules are being followed
-              - entity: sensor.aquarea_pump_flow
-                name: Pump Flow
-                icon: mdi:water-pump
-
-              - entity: sensor.aquarea_compressor_frequency
-                name: Compressor Frequency
-                icon: mdi:sine-wave
-
-              - entity: sensor.aquarea_3_way_valve
-                name: 3-Way Valve (Room / Tank)
-                icon: mdi:valve
-
-              # input_number controls exposed by heishamon.yaml
-              - type: divider
-              - entity: input_number.heishamon_heatshift_z1
-                name: Z1 Setpoint Input (manual override)
-                icon: mdi:tune
-
-              - entity: input_select.heishamon_heatmode
-                name: Heat Mode Selector
-                icon: mdi:format-list-bulleted
-
-              - entity: input_select.heishamon_quietmode
-                name: Quiet Mode Selector
-                icon: mdi:volume-off
-
-      # ===========================================================
-      # SECTION 6 — OPERATIONAL STATS
-      # Lifetime and current-session counters for the compressor
-      # and pump. Useful for maintenance planning and wear tracking.
-      # ===========================================================
+      # ----------------------------------------------------------
+      # SECTION 5 — OPERATIONAL STATS
+      # Lifetime and current-session counters for compressor and pump.
+      # Useful for maintenance planning and wear tracking.
+      # ----------------------------------------------------------
       - type: vertical-stack
         cards:
           - type: markdown
@@ -340,3 +261,358 @@ views:
               - entity: sensor.aquarea_last_error
                 name: Last Error Code
                 icon: mdi:alert-circle-outline
+
+
+  # ============================================================
+  # VIEW 2 — ANALYSIS
+  # Breaks down the setpoint computation: WAR curve, RTC correction,
+  # and soft-start ramp. Template sensors from sensors.yaml required.
+  # ============================================================
+  - title: Analysis
+    path: analysis
+    icon: mdi:chart-line
+    badges: []
+    cards:
+
+      # ----------------------------------------------------------
+      # SECTION A — WAR CURVE ANALYSIS
+      # Weather Adaptive Regulation: outdoor temp → water setpoint.
+      # Compare WAR-only setpoint vs what the rules actually sent.
+      # Net shift = effect of RTC + soft-start + min-freq combined.
+      # ----------------------------------------------------------
+      - type: vertical-stack
+        cards:
+          - type: markdown
+            content: "## 🌤️ Weather Compensation (WAR) Analysis"
+
+          - type: entities
+            title: WAR Setpoint vs Actual
+            entities:
+              - entity: sensor.aquarea_outside_ambient_temperature
+                name: Outdoor Temperature (WAR input)
+                icon: mdi:thermometer-chevron-up
+
+              - entity: sensor.heishamon_war_setpoint
+                name: WAR Setpoint (curve only)
+                icon: mdi:chart-bell-curve
+
+              - entity: sensor.aquarea_z1_heat_request_temperature
+                name: Actual Z1 Request (sent by rules)
+                icon: mdi:target
+
+              - entity: sensor.heishamon_net_shift
+                name: Net Shift (actual − WAR)
+                icon: mdi:delta
+
+          # Dynamic markdown explaining the current WAR state
+          - type: markdown
+            content: >
+              ### Weather Curve Analysis
+
+              Outdoor: **{{ states('sensor.aquarea_outside_ambient_temperature') }}°C**
+
+              WAR setpoint: **{{ states('sensor.heishamon_war_setpoint') }}°C**
+
+              Actual Z1 request: **{{ states('sensor.aquarea_z1_heat_request_temperature') }}°C**
+
+              Net shift: **{{ (states('sensor.aquarea_z1_heat_request_temperature') | float(0) - states('sensor.heishamon_war_setpoint') | float(0)) | round(1) }}°C**
+
+              > Shift > 0 = min-freq boost or cold compensation active.
+              > Shift < 0 = RTC reducing heat (room is warm) or soft-start ramp.
+
+      # ----------------------------------------------------------
+      # SECTION B — RTC ANALYSIS
+      # Room Temperature Control: how far room is from setpoint,
+      # and which correction step the rules table selects.
+      # ----------------------------------------------------------
+      - type: vertical-stack
+        cards:
+          - type: markdown
+            content: "## 🏠 Room Temperature Control (RTC) Analysis"
+
+          - type: entities
+            title: RTC Inputs & Correction
+            entities:
+              - entity: sensor.heishamon_room_temperature
+                name: Room Temperature (measured)
+                icon: mdi:home-thermometer
+
+              - entity: sensor.heishamon_room_setpoint
+                name: Room Setpoint (target)
+                icon: mdi:home-thermometer-outline
+
+              - entity: sensor.heishamon_rtc_delta
+                name: RTC Delta (room − setpoint)
+                icon: mdi:delta
+
+              - entity: sensor.heishamon_rtc_correction
+                name: RTC Correction Applied
+                icon: mdi:thermometer-plus-outline
+
+          # Dynamic markdown for RTC state
+          - type: markdown
+            content: >
+              ### Room Temperature Control
+
+              Room: **{{ states('sensor.heishamon_room_temperature') }}°C**
+              vs setpoint **{{ states('sensor.heishamon_room_setpoint') }}°C**
+
+              Delta: **{{ states('sensor.heishamon_rtc_delta') }}°C**
+
+              RTC correction: **{{ states('sensor.heishamon_rtc_correction') }}°C**
+
+              > Positive delta = room is warmer than target → RTC reduces setpoint.
+              > Negative delta = room is cooler → RTC increases setpoint.
+              >
+              > Dead band: −0.2 to +0.5°C → correction = 0 (no change).
+
+      # ----------------------------------------------------------
+      # SECTION C — SOFT-START ANALYSIS
+      # When compressor starts cold (outdoor ≤ 8°C), setpoint is
+      # temporarily boosted and then ramped down over 780 seconds.
+      # Progress is tracked via input_datetime.heishamon_compressor_start_time.
+      # ----------------------------------------------------------
+      - type: vertical-stack
+        cards:
+          - type: markdown
+            content: "## 🚀 Soft-Start Ramp Analysis"
+
+          - type: entities
+            title: Soft-Start Status
+            entities:
+              - entity: sensor.aquarea_compressor_frequency
+                name: Compressor Frequency (live)
+                icon: mdi:sine-wave
+
+              - entity: sensor.heishamon_compressor_run_seconds
+                name: Compressor Running (seconds)
+                icon: mdi:timer-outline
+
+              - entity: sensor.heishamon_softstart_progress
+                name: Soft-Start Ramp Progress
+                icon: mdi:progress-clock
+
+              - entity: sensor.heishamon_softstart_shift
+                name: Soft-Start Shift (°C)
+                icon: mdi:thermometer-chevron-down
+
+          # Dynamic soft-start status markdown
+          - type: markdown
+            content: >
+              ### Soft-Start Status
+
+              {% set secs = states('sensor.heishamon_compressor_run_seconds') | float(0) %}
+              {% set mins = (secs / 60) | round(1) %}
+              {% set progress = states('sensor.heishamon_softstart_progress') | float(0) %}
+              {% set shift = states('sensor.heishamon_softstart_shift') | float(0) %}
+              {% set outdoor = states('sensor.aquarea_outside_ambient_temperature') | float(99) %}
+              {% set freq = states('sensor.aquarea_compressor_frequency') | float(0) %}
+
+              {% if outdoor > 8 %}
+              Outdoor temperature is **{{ outdoor }}°C** — soft-start only activates below 8°C.
+              **Status: Inactive (warm outdoor)**
+              {% elif freq <= 10 %}
+              Compressor is **off** (frequency {{ freq }} Hz).
+              **Status: Inactive (compressor stopped)**
+              {% elif progress >= 100 %}
+              Ramp complete — compressor has been running for **{{ mins }} min**.
+              **Status: Complete (no shift applied)**
+              {% else %}
+              Compressor running for **{{ mins }} min** ({{ secs | int }} seconds).
+
+              Ramp progress: **{{ progress }}%** of 780 s
+
+              Current soft-start shift: **{{ shift }}°C**
+
+              **Status: Active 🚀**
+              {% endif %}
+
+              > Soft-start adds up to +5°C at startup and ramps to 0 over 13 min.
+              > Only active when outdoor temp ≤ 8°C.
+
+      # ----------------------------------------------------------
+      # SECTION D — COMBINED SETPOINT HISTORY (24h)
+      # Overlay WAR baseline, actual Z1 request, and HP-confirmed
+      # target to see how shifts move the setpoint over time.
+      # ----------------------------------------------------------
+      - type: vertical-stack
+        cards:
+          - type: markdown
+            content: "## 📈 Combined Setpoint History (24h)"
+
+          - type: history-graph
+            title: WAR vs Actual vs HP Confirmed
+            hours_to_show: 24
+            refresh_interval: 60
+            entities:
+              - entity: sensor.heishamon_war_setpoint
+                name: WAR Setpoint (curve only)
+              - entity: sensor.aquarea_z1_heat_request_temperature
+                name: Z1 Heat Request (rules output)
+              - entity: sensor.aquarea_main_target_temp
+                name: Main Target (HP confirmed)
+
+          - type: markdown
+            content: >
+              > **WAR Setpoint** — what pure weather compensation would produce.
+              >
+              > **Z1 Heat Request** — what the HeishaMon rules actually sent (WAR + RTC + soft-start + min-freq).
+              >
+              > **Main Target** — what the heat pump confirmed as its operating target.
+              >
+              > Gap between WAR and Z1 Request = combined shift. Gap between Z1 Request and Main Target = HP response lag.
+
+
+  # ============================================================
+  # VIEW 3 — SETTINGS
+  # Room setpoint slider, HP direct controls, feature status,
+  # MQTT diagnostics.
+  # ============================================================
+  - title: Settings
+    path: settings
+    icon: mdi:cog
+    badges: []
+    cards:
+
+      # ----------------------------------------------------------
+      # SECTION A — ROOM SETPOINT CONTROL
+      # Slider for the RTC room temperature target.
+      # HA automation publishes this to HeishaMon via MQTT.
+      # ----------------------------------------------------------
+      - type: vertical-stack
+        cards:
+          - type: markdown
+            content: "## 🏠 Room Setpoint (RTC Target)"
+
+          - type: entities
+            title: Room Temperature Target
+            entities:
+              - entity: input_number.heishamon_room_setpoint_target
+                name: Room Setpoint
+                icon: mdi:home-thermometer-outline
+
+          - type: markdown
+            content: >
+              This is the **room temperature target** used by the RTC (Room Temperature Control) logic.
+
+              Changing this slider will immediately publish the new setpoint to HeishaMon via MQTT
+              (via the **HeishaMon: Sync room temperature to RTC** automation).
+
+              The HeishaMon rules will then adjust the heat pump water setpoint up or down
+              based on how far the actual room temperature is from this target.
+
+              > Typical value: **21°C**. Range: 15–25°C in 0.5°C steps.
+
+      # ----------------------------------------------------------
+      # SECTION B — HEISHAMON DIRECT CONTROLS
+      # Exposed input helpers from heishamon.yaml — these publish
+      # directly to HeishaMon MQTT when changed in HA.
+      # ----------------------------------------------------------
+      - type: vertical-stack
+        cards:
+          - type: markdown
+            content: "## 🔧 HeishaMon Direct Controls"
+
+          - type: entities
+            title: Heat Pump Controls
+            entities:
+              # Quiet mode — reduces noise at the cost of efficiency
+              - entity: input_select.heishamon_quietmode
+                name: Quiet Mode
+                icon: mdi:volume-off
+
+              # Heat mode — controls operating mode (compensation curve, etc.)
+              - entity: input_select.heishamon_heatmode
+                name: Heat Mode
+                icon: mdi:fire
+
+              - type: divider
+
+              # Manual Z1 heat shift — adds/subtracts from setpoint directly
+              - entity: input_number.heishamon_heatshift_z1
+                name: Z1 Heat Shift (manual offset)
+                icon: mdi:tune
+
+              # DHW target temperature
+              - entity: input_number.heishamon_tank_temp
+                name: DHW Target Temperature
+                icon: mdi:water-boiler
+
+          - type: markdown
+            content: >
+              > Changes to these controls are published to HeishaMon via MQTT automations
+              > defined in `heishamon.yaml`. The heat pump responds within one polling cycle (~10s).
+
+      # ----------------------------------------------------------
+      # SECTION C — FEATURE STATUS (read-only)
+      # Feature flags are set in the HeishaMon rules file — they
+      # cannot be toggled from HA. This card explains what's active.
+      # ----------------------------------------------------------
+      - type: vertical-stack
+        cards:
+          - type: markdown
+            content: "## ⚙️ HeishaMon Rule Features"
+
+          - type: markdown
+            content: |
+              ### HeishaMon Rule Features
+
+              These features are configured in the HeishaMon rules file.
+              To enable/disable, update the rules and redeploy.
+
+              | Feature | Setting |
+              |---------|---------|
+              | Weather Compensation (WAR) | Always on |
+              | Min-Freq Control | `#enableMinFreq` in rules |
+              | Room Temp Control (RTC) | `#enableRTC` in rules |
+              | Soft-Start | `#enableSoftStart` in rules |
+
+              > Edit `src/rules/heating_manager.rules` in the HeishaMon config repo,
+              > then flash/upload to your HeishaMon device to change these settings.
+
+      # ----------------------------------------------------------
+      # SECTION D — MQTT DIAGNOSTICS
+      # Verify HeishaMon is alive and publishing data to MQTT.
+      # If sensors stop updating, check the HeishaMon device first.
+      # ----------------------------------------------------------
+      - type: vertical-stack
+        cards:
+          - type: markdown
+            content: "## 📡 MQTT Diagnostics"
+
+          - type: entities
+            title: Last Data From HeishaMon
+            show_header_toggle: false
+            entities:
+              # These entities show when HeishaMon last published.
+              # If they haven't updated in >5 minutes, check MQTT.
+              - entity: sensor.aquarea_outside_ambient_temperature
+                name: Outdoor Temp (last update)
+                icon: mdi:thermometer
+
+              - entity: sensor.aquarea_compressor_frequency
+                name: Compressor Freq (last update)
+                icon: mdi:sine-wave
+
+              - entity: sensor.aquarea_z1_heat_request_temperature
+                name: Z1 Heat Request (last update)
+                icon: mdi:target
+
+              - entity: sensor.heishamon_room_temperature
+                name: Room Temp (MQTT echo, last update)
+                icon: mdi:home-thermometer
+
+          - type: markdown
+            content: >
+              ### How to verify MQTT is working
+
+              1. Check that the entities above have recent **last changed** timestamps.
+              2. In HA → **Developer Tools → MQTT**, subscribe to `panasonic_heat_pump/#`
+                 and confirm messages arrive every ~10 seconds.
+              3. If no messages: check your HeishaMon device is online and the MQTT broker
+                 (Mosquitto) is running. Restart the HeishaMon device if needed.
+              4. If room temp sensors are stale: verify the **HeishaMon: Sync room temperature**
+                 automation is enabled and has run recently.
+
+              > HeishaMon publishes all heat pump data every ~10 seconds via MQTT.
+              > The HA integration polls these topics and updates sensor states in near real-time.

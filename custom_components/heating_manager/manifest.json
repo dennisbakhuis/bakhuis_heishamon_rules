@@ -1,0 +1,12 @@
+{
+  "domain": "heating_manager",
+  "name": "Heating Manager for HeishaMon",
+  "version": "1.0.0",
+  "documentation": "https://github.com/dennisbakhuis/bakhuis_heishamon_rules",
+  "issue_tracker": "https://github.com/dennisbakhuis/bakhuis_heishamon_rules/issues",
+  "codeowners": ["@dennisbakhuis"],
+  "requirements": [],
+  "dependencies": ["mqtt"],
+  "iot_class": "local_push",
+  "homeassistant": "2023.1.0"
+}

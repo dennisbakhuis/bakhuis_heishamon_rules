@@ -519,6 +519,81 @@ views:
               > Typical value: **21°C**. Range: 15–25°C in 0.5°C steps.
 
       # ----------------------------------------------------------
+      # SECTION A2 — WAR CURVE PARAMETERS
+      # Tune the piecewise weather compensation curve from the UI.
+      # Three control points map outdoor temperature to water target.
+      # Changes take effect immediately — no restart needed.
+      # ----------------------------------------------------------
+      - type: vertical-stack
+        cards:
+          - type: markdown
+            content: "## 📈 WAR Curve Parameters"
+
+          - type: markdown
+            content: >
+              Three control points define the piecewise weather compensation curve.
+              Changes take effect immediately — no restart needed.
+
+              | Point | Outdoor → Water |
+              |-------|----------------|
+              | Cold  | `outdoor_low` → `target_low` |
+              | Mid   | `outdoor_mid` → `target_mid` |
+              | Warm  | `outdoor_high` → `target_high` |
+
+          - type: entities
+            title: "Outdoor Temperatures (°C)"
+            entities:
+              - entity: input_number.heishamon_war_outdoor_low
+                name: Cold point (outdoor)
+              - entity: input_number.heishamon_war_outdoor_mid
+                name: Mid point (outdoor)
+              - entity: input_number.heishamon_war_outdoor_high
+                name: Warm point (outdoor)
+
+          - type: entities
+            title: "Water Target Temperatures (°C)"
+            entities:
+              - entity: input_number.heishamon_war_target_low
+                name: Cold point (water target)
+              - entity: input_number.heishamon_war_target_mid
+                name: Mid point (water target)
+              - entity: input_number.heishamon_war_target_high
+                name: Warm point (water target)
+
+          - type: entities
+            title: "Setpoint Limits"
+            entities:
+              - entity: input_number.heishamon_war_min_setpoint
+                name: Minimum setpoint
+              - entity: input_number.heishamon_war_max_setpoint
+                name: Maximum setpoint
+
+      # ----------------------------------------------------------
+      # SECTION A3 — SOFT-START PARAMETERS
+      # Tune the compressor soft-start ramp from the UI.
+      # Active only when outdoor temp ≤ outdoor max.
+      # ----------------------------------------------------------
+      - type: vertical-stack
+        cards:
+          - type: markdown
+            content: "## 🚀 Soft-Start Parameters"
+
+          - type: markdown
+            content: >
+              The soft-start ramp reduces water temperature at compressor startup
+              to prevent thermal shock. Active only when outdoor temp ≤ outdoor max.
+
+          - type: entities
+            title: Soft-Start Settings
+            entities:
+              - entity: input_number.heishamon_softstart_duration
+                name: Ramp duration (s)
+              - entity: input_number.heishamon_softstart_max_shift
+                name: Max temperature shift (°C)
+              - entity: input_number.heishamon_softstart_outdoor_max
+                name: Active below outdoor temp (°C)
+
+      # ----------------------------------------------------------
       # SECTION B — HEISHAMON DIRECT CONTROLS
       # Exposed input helpers from heishamon.yaml — these publish
       # directly to HeishaMon MQTT when changed in HA.

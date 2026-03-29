@@ -39,6 +39,7 @@ class TestYAMLValidity:
             "helpers.yaml",
             "automations.yaml",
             "topics.yaml",
+            "heating_manager_package.yaml",
         ],
     )
     def test_yaml_parses(self, filename: str) -> None:
@@ -111,21 +112,46 @@ class TestEntityConsistency:
 # ---------------------------------------------------------------------------
 
 
-def compute_war_setpoint(outdoor_temp: float) -> int:
+def compute_war_setpoint(
+    outdoor_temp: float,
+    ol: float = -7.0,
+    om: float = 5.0,
+    oh: float = 15.0,
+    tl: float = 40.0,
+    tm: float = 33.0,
+    th: float = 28.0,
+    min_sp: float = 20.0,
+    max_sp: float = 42.0,
+) -> int:
     """
     Compute WAR setpoint matching the HA template sensor formula.
 
-    Piecewise weather-to-water compensation curve:
-      - Below -7°C: clamp to 40
-      - -7°C to 5°C: ceil(33 + (5 - t) * 7/12)
-      - 5°C to 15°C: ceil(28 + (15 - t) * 5/10)
-      - Above 15°C: clamp to 28
-      - Output clamped to [20, 42]
+    Piecewise weather-to-water compensation curve driven by configurable
+    control points (read from input_number helpers in HA).
+
+    Default values match the Node-RED calibration:
+      cold (-7→40), mid (5→33), warm (15→28), clamp [20, 42].
 
     Parameters
     ----------
     outdoor_temp : float
         Outdoor air temperature in °C.
+    ol : float
+        Outdoor temperature at cold control point.
+    om : float
+        Outdoor temperature at mid control point.
+    oh : float
+        Outdoor temperature at warm control point.
+    tl : float
+        Water target at cold control point.
+    tm : float
+        Water target at mid control point.
+    th : float
+        Water target at warm control point.
+    min_sp : float
+        Minimum water setpoint (hard floor).
+    max_sp : float
+        Maximum water setpoint (hard ceiling).
 
     Returns
     -------
@@ -133,15 +159,17 @@ def compute_war_setpoint(outdoor_temp: float) -> int:
         Target water setpoint in °C.
     """
     t = outdoor_temp
-    if t <= -7:
-        raw: float = 40
-    elif t >= 15:
-        raw = 28
-    elif t <= 5:
-        raw = math.ceil(33 + (5 - t) * 7 / 12)
+    if t <= ol:
+        raw: float = max(tl, min_sp)
+    elif t >= oh:
+        raw = max(th, min_sp)
+    elif t <= om:
+        slope = (tl - tm) / (om - ol)
+        raw = max(min(math.ceil(tm + (om - t) * slope), int(max_sp)), int(min_sp))
     else:
-        raw = math.ceil(28 + (15 - t) * 5 / 10)
-    return max(20, min(42, int(raw)))
+        slope = (tm - th) / (oh - om)
+        raw = max(min(math.ceil(th + (oh - t) * slope), int(max_sp)), int(min_sp))
+    return int(raw)
 
 
 def compute_rtc_correction(delta: float) -> int:

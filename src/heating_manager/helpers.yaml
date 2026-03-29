@@ -98,6 +98,114 @@ input_number:
     icon: mdi:water-thermometer
     initial: 52
 
+  # ── WAR CURVE PARAMETERS ─────────────────────────────────────────────
+  # Three control points define the piecewise weather compensation curve.
+  # Defaults match the Node-RED calibration: cold (-7→40), mid (5→33), warm (15→28).
+  # These values are read by the WAR setpoint template sensor in sensors.yaml.
+  # Tune from the Settings tab in the dashboard — no YAML editing needed.
+  heishamon_war_outdoor_low:
+    name: "WAR Outdoor Low (°C)"
+    min: -15
+    max: 0
+    step: 0.5
+    unit_of_measurement: "°C"
+    icon: mdi:thermometer-low
+    initial: -7
+
+  heishamon_war_outdoor_mid:
+    name: "WAR Outdoor Mid (°C)"
+    min: 0
+    max: 10
+    step: 0.5
+    unit_of_measurement: "°C"
+    icon: mdi:thermometer
+    initial: 5
+
+  heishamon_war_outdoor_high:
+    name: "WAR Outdoor High (°C)"
+    min: 10
+    max: 25
+    step: 0.5
+    unit_of_measurement: "°C"
+    icon: mdi:thermometer-high
+    initial: 15
+
+  heishamon_war_target_low:
+    name: "WAR Target Low (°C)"
+    min: 30
+    max: 45
+    step: 0.5
+    unit_of_measurement: "°C"
+    icon: mdi:thermometer-water
+    initial: 40
+
+  heishamon_war_target_mid:
+    name: "WAR Target Mid (°C)"
+    min: 25
+    max: 42
+    step: 0.5
+    unit_of_measurement: "°C"
+    icon: mdi:thermometer-water
+    initial: 33
+
+  heishamon_war_target_high:
+    name: "WAR Target High (°C)"
+    min: 20
+    max: 38
+    step: 0.5
+    unit_of_measurement: "°C"
+    icon: mdi:thermometer-water
+    initial: 28
+
+  heishamon_war_min_setpoint:
+    name: "WAR Min Setpoint (°C)"
+    min: 15
+    max: 30
+    step: 0.5
+    unit_of_measurement: "°C"
+    icon: mdi:arrow-down-bold
+    initial: 20
+
+  heishamon_war_max_setpoint:
+    name: "WAR Max Setpoint (°C)"
+    min: 35
+    max: 55
+    step: 0.5
+    unit_of_measurement: "°C"
+    icon: mdi:arrow-up-bold
+    initial: 42
+
+  # ── SOFT-START PARAMETERS ─────────────────────────────────────────────
+  # Configurable ramp duration, max shift, and outdoor temperature threshold.
+  # Read by the soft-start template sensors in sensors.yaml.
+  # Tune from the Settings tab in the dashboard — no YAML editing needed.
+  heishamon_softstart_duration:
+    name: "Soft-Start Duration (s)"
+    min: 120
+    max: 1800
+    step: 60
+    unit_of_measurement: "s"
+    icon: mdi:timer-outline
+    initial: 780
+
+  heishamon_softstart_max_shift:
+    name: "Soft-Start Max Shift (°C)"
+    min: 1
+    max: 10
+    step: 0.5
+    unit_of_measurement: "°C"
+    icon: mdi:thermometer-plus-outline
+    initial: 5
+
+  heishamon_softstart_outdoor_max:
+    name: "Soft-Start Outdoor Max (°C)"
+    min: 0
+    max: 15
+    step: 0.5
+    unit_of_measurement: "°C"
+    icon: mdi:thermometer-chevron-up
+    initial: 8
+
 
 # ============================================================
 # INPUT_DATETIME — Date/time inputs

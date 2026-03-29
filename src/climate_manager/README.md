@@ -1,4 +1,4 @@
-# Heating Manager Dashboard
+# Climate Manager Dashboard
 
 A complete Home Assistant Lovelace dashboard for monitoring and controlling a **Panasonic Aquarea heat pump** via [HeishaMon](https://github.com/Egyras/HeishaMon).
 
@@ -44,7 +44,7 @@ All MQTT topics use the prefix `panasonic_heat_pump` by default — the standard
 
 If your HeishaMon device uses a different base topic (e.g. `my_heat_pump`), you only need to edit **one file**: `sensors.yaml`. Replace every occurrence of `panasonic_heat_pump` in the `state_topic` and `command_topic` fields.
 
-`topics.yaml` documents every topic used by the Heating Manager and is the canonical reference. It is **not loaded by Home Assistant** — it is documentation only.
+`topics.yaml` documents every topic used by the Climate Manager and is the canonical reference. It is **not loaded by Home Assistant** — it is documentation only.
 
 ### Entity Naming
 
@@ -82,19 +82,19 @@ mkdir -p /config/packages
 
 **Step 2 — Copy the package file:**
 ```bash
-cp src/heating_manager/heating_manager_package.yaml /config/packages/
+cp src/climate_manager/climate_manager_package.yaml /config/packages/
 ```
 
 **Step 3 — Add to `configuration.yaml`:**
 ```yaml
 homeassistant:
   packages:
-    heating_manager: !include packages/heating_manager_package.yaml
+    climate_manager: !include packages/climate_manager_package.yaml
 ```
 If you already have a `homeassistant:` block, just add the `packages:` key under it.
 
 **Step 4 — Set your room temperature sensor:**
-Open `heating_manager_package.yaml` and find `REPLACE_WITH_YOUR_ROOM_SENSOR`.
+Open `climate_manager_package.yaml` and find `REPLACE_WITH_YOUR_ROOM_SENSOR`.
 Replace it with your actual room temperature entity ID (e.g. `sensor.living_room_temperature`).
 Find your sensor via HA → Developer Tools → States → search for your room temp.
 Skip this step if you are not using RTC.
@@ -178,7 +178,7 @@ After adding all config sections:
 
 1. Go to **Settings → Dashboards**
 2. Click **+ Add dashboard**
-3. Give it a name (e.g., "Heating Manager") and click Create
+3. Give it a name (e.g., "Climate Manager") and click Create
 4. Open the new dashboard → click the ✏️ Edit button (top right)
 5. Click ⋮ → **Edit in raw YAML editor**
 6. Replace all content with the contents of `dashboard.yaml`

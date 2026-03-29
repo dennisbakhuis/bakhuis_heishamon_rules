@@ -1,4 +1,4 @@
-"""Config flow for Heating Manager integration."""
+"""Config flow for Climate Manager integration."""
 
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
 
 
 class HeatingManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
-    """Handle a config flow for Heating Manager."""
+    """Handle a config flow for Climate Manager."""
 
     VERSION = 1
 
@@ -42,7 +42,7 @@ class HeatingManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             await self.async_set_unique_id(DOMAIN)
             self._abort_if_unique_id_configured()
             return self.async_create_entry(
-                title="Heating Manager for HeishaMon",
+                title="Climate Manager for HeishaMon",
                 data=data,
             )
 

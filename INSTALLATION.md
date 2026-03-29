@@ -6,7 +6,7 @@ Follow the phases **in order** — each phase builds on the previous one.
 ```
 Phase 1 → HeishaMon hardware + MQTT
 Phase 2 → Configure MQTT in Home Assistant
-Phase 3 → Heating Manager dashboard (monitor before you control)
+Phase 3 → Climate Manager dashboard (monitor before you control)
 Phase 4 → Deploy the rules script
 ```
 
@@ -95,9 +95,9 @@ If nothing arrives, confirm HeishaMon is online and its MQTT broker settings
 > ([heishamon-homeassistant](https://github.com/kamaradclimber/heishamon-homeassistant))
 > that creates additional sensors and controls via HACS.
 >
-> **This is NOT required for the Heating Manager.** The Heating Manager is
+> **This is NOT required for the Climate Manager.** The Climate Manager is
 > fully self-contained — all sensors, controls, and automations are defined in
-> the files under `src/heating_manager/`. The only dependency is the MQTT
+> the files under `src/climate_manager/`. The only dependency is the MQTT
 > broker, which you configured in step 2.1.
 >
 > You may still install the HACS integration if you want its additional
@@ -106,7 +106,7 @@ If nothing arrives, confirm HeishaMon is online and its MQTT broker settings
 
 ---
 
-## Phase 3 — Heating Manager dashboard
+## Phase 3 — Climate Manager dashboard
 
 Install the integration **before** the rules so you can see the heat pump behaving
 normally first and confirm everything is working.
@@ -116,18 +116,18 @@ normally first and confirm everything is working.
 1. In Home Assistant: HACS → ⋮ → Custom Repositories →
    URL: `https://github.com/dennisbakhuis/bakhuis_heishamon_rules` → Category: Integration → Add
 
-2. Find "Heating Manager for HeishaMon" in HACS → Install → Restart Home Assistant
+2. Find "Climate Manager for HeishaMon" in HACS → Install → Restart Home Assistant
 
-3. Go to **Settings → Integrations → + Add Integration** → search "Heating Manager"
+3. Go to **Settings → Integrations → + Add Integration** → search "Climate Manager"
 
 4. Enter your MQTT base topic (default: `panasonic_heat_pump`) and optionally
    your room temperature sensor entity ID for RTC
 
-5. Submit → all sensors, controls, and analysis entities are created automatically
+5. Submit → Home Assistant will restart and a **Climate Manager** entry will
+   appear automatically in your sidebar. Click it to open the dashboard.
 
-6. **Import the dashboard:**
-   Settings → Dashboards → Add Dashboard → give it a name → Edit (pencil) →
-   switch to YAML mode → paste the contents of `src/heating_manager/dashboard.yaml`
+No manual dashboard import is needed — the dashboard is bundled with the
+integration and registered automatically.
 
 That's it — no configuration.yaml editing required.
 
@@ -196,7 +196,7 @@ comments, must be under 10 KB).
 
 In HeishaMon's **Console** tab, you should see print output from the rules
 (if `print()` statements are present). More reliably, watch the **Analysis** tab
-of your Heating Manager dashboard:
+of your Climate Manager dashboard:
 
 - **WAR Setpoint** should update and the **Z1 Heat Request** should match it
   (within the shift range)
@@ -227,7 +227,7 @@ re-upload the minified file.
 |---------|-------|
 | HeishaMon not publishing MQTT | HeishaMon web UI → Log tab; verify broker IP and credentials |
 | HA sensors `unavailable` | MQTT connected? sensors.yaml added to configuration.yaml? HA restarted? |
-| Dashboard showing wrong entity IDs | See `src/heating_manager/README.md` → Entity ID verification |
+| Dashboard showing wrong entity IDs | See `src/climate_manager/README.md` → Entity ID verification |
 | Rules not taking effect | HeishaMon Console → any parse errors? Rules tab → is ruleset saved? |
 | Z1 request not changing | Check `@Outside_Temp` is available; timer=1 fires after 60s from boot |
 | RTC not working | OpenTherm enabled in HeishaMon? HA automation running? Check `sensor.heishamon_room_temperature` in HA |
@@ -242,10 +242,10 @@ Phase 1  HeishaMon device → connected to HP → publishing to MQTT
    ↓
 Phase 2  MQTT integration configured in HA → broker connected
    ↓
-Phase 3  Heating Manager → dashboard installed → Analysis tab shows WAR/RTC/soft-start
+Phase 3  Climate Manager → dashboard installed → Analysis tab shows WAR/RTC/soft-start
    ↓
 Phase 4  Rules deployed → HeishaMon controls setpoint → dashboard confirms it's working
 ```
 
 For detailed documentation on the rules logic, see [`README.md`](README.md).
-For the dashboard, see [`src/heating_manager/README.md`](src/heating_manager/README.md).
+For the dashboard, see [`src/climate_manager/README.md`](src/climate_manager/README.md).

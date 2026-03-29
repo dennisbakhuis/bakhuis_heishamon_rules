@@ -1,4 +1,4 @@
-"""Sensor platform for Heating Manager."""
+"""Sensor platform for Climate Manager."""
 
 from __future__ import annotations
 
@@ -62,7 +62,7 @@ _LOGGER = logging.getLogger(__name__)
 
 DEVICE_INFO = DeviceInfo(
     identifiers={(DOMAIN, DOMAIN)},
-    name="Heating Manager",
+    name="Climate Manager",
     manufacturer="HeishaMon / Panasonic",
     model="Aquarea Heat Pump",
 )
@@ -358,7 +358,7 @@ class HeishaMonMQTTSensor(RestoreSensor, SensorEntity):
         self._mqtt_base = mqtt_base
         self._topic_suffix = topic_suffix
         self._attr_name = name
-        self._attr_unique_id = f"heating_manager_{unique_suffix}"
+        self._attr_unique_id = f"climate_manager_{unique_suffix}"
         self._attr_native_unit_of_measurement = unit
         self._attr_device_class = device_class
         self._attr_state_class = state_class
@@ -455,26 +455,26 @@ class WARSetpointSensor(HeishaMonTemplateSensor):
     """WAR Setpoint template sensor."""
 
     _attr_name = "WAR Setpoint"
-    _attr_unique_id = "heating_manager_war_setpoint"
+    _attr_unique_id = "climate_manager_war_setpoint"
     _attr_native_unit_of_measurement = "°C"
     _attr_device_class = SensorDeviceClass.TEMPERATURE
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_icon = "mdi:chart-bell-curve"
 
     _dependencies = [
-        "sensor.heating_manager_outside_temp",
-        "number.heating_manager_war_outdoor_low",
-        "number.heating_manager_war_outdoor_mid",
-        "number.heating_manager_war_outdoor_high",
-        "number.heating_manager_war_target_low",
-        "number.heating_manager_war_target_mid",
-        "number.heating_manager_war_target_high",
-        "number.heating_manager_war_min_setpoint",
-        "number.heating_manager_war_max_setpoint",
+        "sensor.climate_manager_outside_temp",
+        "number.climate_manager_war_outdoor_low",
+        "number.climate_manager_war_outdoor_mid",
+        "number.climate_manager_war_outdoor_high",
+        "number.climate_manager_war_target_low",
+        "number.climate_manager_war_target_mid",
+        "number.climate_manager_war_target_high",
+        "number.climate_manager_war_min_setpoint",
+        "number.climate_manager_war_max_setpoint",
     ]
 
     def _update(self) -> None:
-        outdoor_state = self.hass.states.get("sensor.heating_manager_outside_temp")
+        outdoor_state = self.hass.states.get("sensor.climate_manager_outside_temp")
         if outdoor_state is None or outdoor_state.state in ("unknown", "unavailable"):
             self._attr_native_value = None
             return
@@ -485,14 +485,14 @@ class WARSetpointSensor(HeishaMonTemplateSensor):
             self._attr_native_value = None
             return
 
-        ol = self._get_float("number.heating_manager_war_outdoor_low", -7.0)
-        om = self._get_float("number.heating_manager_war_outdoor_mid", 5.0)
-        oh = self._get_float("number.heating_manager_war_outdoor_high", 15.0)
-        tl = self._get_float("number.heating_manager_war_target_low", 40.0)
-        tm = self._get_float("number.heating_manager_war_target_mid", 33.0)
-        th = self._get_float("number.heating_manager_war_target_high", 28.0)
-        min_sp = self._get_float("number.heating_manager_war_min_setpoint", 20.0)
-        max_sp = self._get_float("number.heating_manager_war_max_setpoint", 42.0)
+        ol = self._get_float("number.climate_manager_war_outdoor_low", -7.0)
+        om = self._get_float("number.climate_manager_war_outdoor_mid", 5.0)
+        oh = self._get_float("number.climate_manager_war_outdoor_high", 15.0)
+        tl = self._get_float("number.climate_manager_war_target_low", 40.0)
+        tm = self._get_float("number.climate_manager_war_target_mid", 33.0)
+        th = self._get_float("number.climate_manager_war_target_high", 28.0)
+        min_sp = self._get_float("number.climate_manager_war_min_setpoint", 20.0)
+        max_sp = self._get_float("number.climate_manager_war_max_setpoint", 42.0)
 
         self._attr_native_value = _compute_war(outdoor, ol, om, oh, tl, tm, th, min_sp, max_sp)
 
@@ -526,21 +526,21 @@ class NetShiftSensor(HeishaMonTemplateSensor):
     """Net Shift = Z1 heat request - WAR setpoint."""
 
     _attr_name = "Net Shift"
-    _attr_unique_id = "heating_manager_net_shift"
+    _attr_unique_id = "climate_manager_net_shift"
     _attr_native_unit_of_measurement = "°C"
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_icon = "mdi:delta"
 
     _dependencies = [
-        "sensor.heating_manager_z1_heat_request",
-        "sensor.heating_manager_war_setpoint",
+        "sensor.climate_manager_z1_heat_request",
+        "sensor.climate_manager_war_setpoint",
     ]
 
     def _update(self) -> None:
-        z1 = self._get_float("sensor.heating_manager_z1_heat_request")
-        war = self._get_float("sensor.heating_manager_war_setpoint")
-        z1_state = self.hass.states.get("sensor.heating_manager_z1_heat_request")
-        war_state = self.hass.states.get("sensor.heating_manager_war_setpoint")
+        z1 = self._get_float("sensor.climate_manager_z1_heat_request")
+        war = self._get_float("sensor.climate_manager_war_setpoint")
+        z1_state = self.hass.states.get("sensor.climate_manager_z1_heat_request")
+        war_state = self.hass.states.get("sensor.climate_manager_war_setpoint")
         if (
             z1_state is None
             or z1_state.state in ("unknown", "unavailable")
@@ -556,19 +556,19 @@ class RTCDeltaSensor(HeishaMonTemplateSensor):
     """RTC Delta = room_temp - room_setpoint_received."""
 
     _attr_name = "RTC Delta"
-    _attr_unique_id = "heating_manager_rtc_delta"
+    _attr_unique_id = "climate_manager_rtc_delta"
     _attr_native_unit_of_measurement = "°C"
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_icon = "mdi:delta"
 
     _dependencies = [
-        "sensor.heating_manager_room_temp",
-        "sensor.heating_manager_room_setpoint_received",
+        "sensor.climate_manager_room_temp",
+        "sensor.climate_manager_room_setpoint_received",
     ]
 
     def _update(self) -> None:
-        room_state = self.hass.states.get("sensor.heating_manager_room_temp")
-        setpoint_state = self.hass.states.get("sensor.heating_manager_room_setpoint_received")
+        room_state = self.hass.states.get("sensor.climate_manager_room_temp")
+        setpoint_state = self.hass.states.get("sensor.climate_manager_room_setpoint_received")
         if (
             room_state is None
             or room_state.state in ("unknown", "unavailable")
@@ -589,15 +589,15 @@ class RTCCorrectionSensor(HeishaMonTemplateSensor):
     """RTC Correction — 8-band lookup on RTC delta."""
 
     _attr_name = "RTC Correction"
-    _attr_unique_id = "heating_manager_rtc_correction"
+    _attr_unique_id = "climate_manager_rtc_correction"
     _attr_native_unit_of_measurement = "°C"
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_icon = "mdi:thermometer-plus-outline"
 
-    _dependencies = ["sensor.heating_manager_rtc_delta"]
+    _dependencies = ["sensor.climate_manager_rtc_delta"]
 
     def _update(self) -> None:
-        state = self.hass.states.get("sensor.heating_manager_rtc_delta")
+        state = self.hass.states.get("sensor.climate_manager_rtc_delta")
         if state is None or state.state in ("unknown", "unavailable"):
             self._attr_native_value = None
             return
@@ -629,19 +629,19 @@ class CompressorRunSecondsSensor(HeishaMonTemplateSensor):
     """Compressor Run Seconds — time since compressor started."""
 
     _attr_name = "Compressor Run Seconds"
-    _attr_unique_id = "heating_manager_compressor_run_seconds"
+    _attr_unique_id = "climate_manager_compressor_run_seconds"
     _attr_native_unit_of_measurement = "s"
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_icon = "mdi:timer-outline"
 
     _dependencies = [
-        "sensor.heating_manager_compressor_freq",
-        "number.heating_manager_compressor_start_epoch",
+        "sensor.climate_manager_compressor_freq",
+        "number.climate_manager_compressor_start_epoch",
     ]
 
     def _update(self, _now: Any = None) -> None:
-        freq = self._get_float("sensor.heating_manager_compressor_freq", 0)
-        start = self._get_float("number.heating_manager_compressor_start_epoch", 0)
+        freq = self._get_float("sensor.climate_manager_compressor_freq", 0)
+        start = self._get_float("number.climate_manager_compressor_start_epoch", 0)
         if freq <= 10 or start <= 0:
             self._attr_native_value = 0
         else:
@@ -653,7 +653,7 @@ class CompressorRunSecondsSensor(HeishaMonTemplateSensor):
 
         @callback
         def _tick(_now: Any) -> None:
-            freq = self._get_float("sensor.heating_manager_compressor_freq", 0)
+            freq = self._get_float("sensor.climate_manager_compressor_freq", 0)
             if freq > 10:
                 self._update()
                 self.async_write_ha_state()
@@ -669,25 +669,25 @@ class SoftStartShiftSensor(HeishaMonTemplateSensor):
     """Soft-Start Shift sensor."""
 
     _attr_name = "Soft-Start Shift"
-    _attr_unique_id = "heating_manager_softstart_shift"
+    _attr_unique_id = "climate_manager_softstart_shift"
     _attr_native_unit_of_measurement = "°C"
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_icon = "mdi:thermometer-chevron-down"
 
     _dependencies = [
-        "sensor.heating_manager_compressor_run_seconds",
-        "sensor.heating_manager_outside_temp",
-        "number.heating_manager_softstart_duration",
-        "number.heating_manager_softstart_max_shift",
-        "number.heating_manager_softstart_outdoor_max",
+        "sensor.climate_manager_compressor_run_seconds",
+        "sensor.climate_manager_outside_temp",
+        "number.climate_manager_softstart_duration",
+        "number.climate_manager_softstart_max_shift",
+        "number.climate_manager_softstart_outdoor_max",
     ]
 
     def _update(self) -> None:
-        run = self._get_float("sensor.heating_manager_compressor_run_seconds", 0)
-        dur = self._get_float("number.heating_manager_softstart_duration", 780.0)
-        max_s = self._get_float("number.heating_manager_softstart_max_shift", 5.0)
-        outdoor = self._get_float("sensor.heating_manager_outside_temp", 99.0)
-        omax = self._get_float("number.heating_manager_softstart_outdoor_max", 8.0)
+        run = self._get_float("sensor.climate_manager_compressor_run_seconds", 0)
+        dur = self._get_float("number.climate_manager_softstart_duration", 780.0)
+        max_s = self._get_float("number.climate_manager_softstart_max_shift", 5.0)
+        outdoor = self._get_float("sensor.climate_manager_outside_temp", 99.0)
+        omax = self._get_float("number.climate_manager_softstart_outdoor_max", 8.0)
 
         if outdoor > omax or run <= 0 or run >= dur:
             self._attr_native_value = 0
@@ -701,24 +701,24 @@ class SoftStartProgressSensor(HeishaMonTemplateSensor):
     """Soft-Start Progress sensor."""
 
     _attr_name = "Soft-Start Progress"
-    _attr_unique_id = "heating_manager_softstart_progress"
+    _attr_unique_id = "climate_manager_softstart_progress"
     _attr_native_unit_of_measurement = "%"
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_icon = "mdi:progress-clock"
 
     _dependencies = [
-        "sensor.heating_manager_compressor_run_seconds",
-        "sensor.heating_manager_outside_temp",
-        "number.heating_manager_softstart_duration",
-        "number.heating_manager_softstart_max_shift",
-        "number.heating_manager_softstart_outdoor_max",
+        "sensor.climate_manager_compressor_run_seconds",
+        "sensor.climate_manager_outside_temp",
+        "number.climate_manager_softstart_duration",
+        "number.climate_manager_softstart_max_shift",
+        "number.climate_manager_softstart_outdoor_max",
     ]
 
     def _update(self) -> None:
-        run = self._get_float("sensor.heating_manager_compressor_run_seconds", 0)
-        dur = self._get_float("number.heating_manager_softstart_duration", 780.0)
-        outdoor = self._get_float("sensor.heating_manager_outside_temp", 99.0)
-        omax = self._get_float("number.heating_manager_softstart_outdoor_max", 8.0)
+        run = self._get_float("sensor.climate_manager_compressor_run_seconds", 0)
+        dur = self._get_float("number.climate_manager_softstart_duration", 780.0)
+        outdoor = self._get_float("sensor.climate_manager_outside_temp", 99.0)
+        omax = self._get_float("number.climate_manager_softstart_outdoor_max", 8.0)
 
         if outdoor > omax:
             self._attr_native_value = 100
@@ -733,18 +733,18 @@ class HeatCOPSensor(HeishaMonTemplateSensor):
     """Heat COP sensor."""
 
     _attr_name = "Heat COP"
-    _attr_unique_id = "heating_manager_heat_cop"
+    _attr_unique_id = "climate_manager_heat_cop"
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_icon = "mdi:fire"
 
     _dependencies = [
-        "sensor.heating_manager_heat_power_produced",
-        "sensor.heating_manager_heat_power_consumed",
+        "sensor.climate_manager_heat_power_produced",
+        "sensor.climate_manager_heat_power_consumed",
     ]
 
     def _update(self) -> None:
-        produced = self._get_float("sensor.heating_manager_heat_power_produced", 0)
-        consumed = self._get_float("sensor.heating_manager_heat_power_consumed", 0)
+        produced = self._get_float("sensor.climate_manager_heat_power_produced", 0)
+        consumed = self._get_float("sensor.climate_manager_heat_power_consumed", 0)
         if consumed > 50:
             self._attr_native_value = round(produced / consumed, 2)
         else:

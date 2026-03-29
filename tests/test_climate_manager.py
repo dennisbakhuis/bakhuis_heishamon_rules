@@ -1,8 +1,8 @@
 """
-Tests for heating_manager YAML configuration files and HA template logic.
+Tests for climate_manager YAML configuration files and HA template logic.
 
 Covers:
-  A - YAML validity: all 5 heating_manager YAML files parse without errors.
+  A - YAML validity: all 5 climate_manager YAML files parse without errors.
   B - Entity consistency: every entity referenced in dashboard.yaml is defined
       in sensors.yaml, helpers.yaml, or the known HeishaMon integration allowlist.
   C - Template logic: Python reimplementations of the three HA template sensors:
@@ -20,7 +20,8 @@ from pathlib import Path
 import pytest
 import yaml
 
-HM_DIR = Path(__file__).parent.parent / "src" / "heating_manager"
+HM_DIR = Path(__file__).parent.parent / "src" / "climate_manager"
+INTEGRATION_DIR = Path(__file__).parent.parent / "custom_components" / "climate_manager"
 
 
 # =============================================================================
@@ -29,7 +30,7 @@ HM_DIR = Path(__file__).parent.parent / "src" / "heating_manager"
 
 
 class TestYAMLValidity:
-    """All heating manager YAML files must parse without errors."""
+    """All climate manager YAML files must parse without errors."""
 
     @pytest.mark.parametrize(
         "filename",
@@ -39,12 +40,12 @@ class TestYAMLValidity:
             "helpers.yaml",
             "automations.yaml",
             "topics.yaml",
-            "heating_manager_package.yaml",
+            "climate_manager_package.yaml",
         ],
     )
     def test_yaml_parses(self, filename: str) -> None:
         """
-        Each YAML file in src/heating_manager/ must parse cleanly.
+        Each YAML file in src/climate_manager/ must parse cleanly.
 
         Parameters
         ----------
@@ -52,6 +53,14 @@ class TestYAMLValidity:
             Filename to parse (relative to HM_DIR).
         """
         content = (HM_DIR / filename).read_text()
+        result = yaml.safe_load(content)
+        assert result is not None
+
+    def test_integration_dashboard_yaml_parses(self) -> None:
+        """
+        The dashboard.yaml bundled inside the HA integration must parse cleanly.
+        """
+        content = (INTEGRATION_DIR / "dashboard.yaml").read_text()
         result = yaml.safe_load(content)
         assert result is not None
 
@@ -63,63 +72,63 @@ class TestYAMLValidity:
 
 EXPECTED_ENTITIES = {
     # MQTT sensors (29)
-    "sensor.heating_manager_heatpump_state",
-    "sensor.heating_manager_operating_mode",
-    "sensor.heating_manager_defrosting_state",
-    "sensor.heating_manager_quiet_mode",
-    "sensor.heating_manager_outside_temp",
-    "sensor.heating_manager_outside_pipe_temp",
-    "sensor.heating_manager_inlet_temp",
-    "sensor.heating_manager_outlet_temp",
-    "sensor.heating_manager_target_temp",
-    "sensor.heating_manager_z1_heat_request",
-    "sensor.heating_manager_z1_water_temp",
-    "sensor.heating_manager_compressor_freq",
-    "sensor.heating_manager_pump_flow",
-    "sensor.heating_manager_pump_speed",
-    "sensor.heating_manager_max_pump_duty",
-    "sensor.heating_manager_3way_valve",
-    "sensor.heating_manager_heat_power_produced",
-    "sensor.heating_manager_heat_power_consumed",
-    "sensor.heating_manager_operating_hours",
-    "sensor.heating_manager_start_stop_counter",
-    "sensor.heating_manager_last_error",
-    "sensor.heating_manager_fan1_speed",
-    "sensor.heating_manager_fan2_speed",
-    "sensor.heating_manager_compressor_current",
-    "sensor.heating_manager_heating_mode",
-    "sensor.heating_manager_z1_sensor_settings",
-    "sensor.heating_manager_pump_flowrate_mode",
-    "sensor.heating_manager_room_temp",
-    "sensor.heating_manager_room_setpoint_received",
+    "sensor.climate_manager_heatpump_state",
+    "sensor.climate_manager_operating_mode",
+    "sensor.climate_manager_defrosting_state",
+    "sensor.climate_manager_quiet_mode",
+    "sensor.climate_manager_outside_temp",
+    "sensor.climate_manager_outside_pipe_temp",
+    "sensor.climate_manager_inlet_temp",
+    "sensor.climate_manager_outlet_temp",
+    "sensor.climate_manager_target_temp",
+    "sensor.climate_manager_z1_heat_request",
+    "sensor.climate_manager_z1_water_temp",
+    "sensor.climate_manager_compressor_freq",
+    "sensor.climate_manager_pump_flow",
+    "sensor.climate_manager_pump_speed",
+    "sensor.climate_manager_max_pump_duty",
+    "sensor.climate_manager_3way_valve",
+    "sensor.climate_manager_heat_power_produced",
+    "sensor.climate_manager_heat_power_consumed",
+    "sensor.climate_manager_operating_hours",
+    "sensor.climate_manager_start_stop_counter",
+    "sensor.climate_manager_last_error",
+    "sensor.climate_manager_fan1_speed",
+    "sensor.climate_manager_fan2_speed",
+    "sensor.climate_manager_compressor_current",
+    "sensor.climate_manager_heating_mode",
+    "sensor.climate_manager_z1_sensor_settings",
+    "sensor.climate_manager_pump_flowrate_mode",
+    "sensor.climate_manager_room_temp",
+    "sensor.climate_manager_room_setpoint_received",
     # Template sensors (8)
-    "sensor.heating_manager_war_setpoint",
-    "sensor.heating_manager_net_shift",
-    "sensor.heating_manager_rtc_delta",
-    "sensor.heating_manager_rtc_correction",
-    "sensor.heating_manager_compressor_run_seconds",
-    "sensor.heating_manager_softstart_shift",
-    "sensor.heating_manager_softstart_progress",
-    "sensor.heating_manager_heat_cop",
+    "sensor.climate_manager_war_setpoint",
+    "sensor.climate_manager_net_shift",
+    "sensor.climate_manager_rtc_delta",
+    "sensor.climate_manager_rtc_correction",
+    "sensor.climate_manager_compressor_run_seconds",
+    "sensor.climate_manager_softstart_shift",
+    "sensor.climate_manager_softstart_progress",
+    "sensor.climate_manager_heat_cop",
     # Switch (1)
-    "switch.heating_manager_heat_pump",
+    "switch.climate_manager_heat_pump",
     # Numbers (13, excluding hidden compressor_start_epoch)
-    "number.heating_manager_room_setpoint_target",
-    "number.heating_manager_dhw_temp",
-    "number.heating_manager_war_outdoor_low",
-    "number.heating_manager_war_outdoor_mid",
-    "number.heating_manager_war_outdoor_high",
-    "number.heating_manager_war_target_low",
-    "number.heating_manager_war_target_mid",
-    "number.heating_manager_war_target_high",
-    "number.heating_manager_war_min_setpoint",
-    "number.heating_manager_war_max_setpoint",
-    "number.heating_manager_softstart_duration",
-    "number.heating_manager_softstart_max_shift",
-    "number.heating_manager_softstart_outdoor_max",
+    "number.climate_manager_room_setpoint_target",
+    "number.climate_manager_dhw_temp",
+    "number.climate_manager_war_outdoor_low",
+    "number.climate_manager_war_outdoor_mid",
+    "number.climate_manager_war_outdoor_high",
+    "number.climate_manager_war_target_low",
+    "number.climate_manager_war_target_mid",
+    "number.climate_manager_war_target_high",
+    "number.climate_manager_war_min_setpoint",
+    "number.climate_manager_war_max_setpoint",
+    "number.climate_manager_softstart_duration",
+    "number.climate_manager_softstart_max_shift",
+    "number.climate_manager_softstart_outdoor_max",
     # Selects (2)
-    "select.heating_manager_quiet_mode",
-    "select.heating_manager_operation_mode",
+    "select.climate_manager_quiet_mode",
+    "select.climate_manager_operation_mode",
 }
 
 
@@ -128,7 +137,7 @@ class TestEntityConsistency:
 
     def test_all_dashboard_entities_are_defined(self) -> None:
         """
-        Every heating_manager_* entity referenced in dashboard.yaml must be
+        Every climate_manager_* entity referenced in dashboard.yaml must be
         present in EXPECTED_ENTITIES.
         """
         dashboard_text = (HM_DIR / "dashboard.yaml").read_text()
@@ -136,8 +145,8 @@ class TestEntityConsistency:
         # All entity: xyz references in dashboard
         referenced = set(re.findall(r"entity:\s+([\w.]+)", dashboard_text))
 
-        # Only check heating_manager_* references
-        hm_refs = {e for e in referenced if "heating_manager" in e}
+        # Only check climate_manager_* references
+        hm_refs = {e for e in referenced if "climate_manager" in e}
 
         undefined = hm_refs - EXPECTED_ENTITIES
         assert undefined == set(), (

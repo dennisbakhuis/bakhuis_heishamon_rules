@@ -1,5 +1,5 @@
 # ============================================================
-# automations.yaml — HeishaMon Heating Manager Automations
+# automations.yaml — HeishaMon Climate Manager Automations
 #
 # Five automations:
 #   A. Room temperature sync (RTC keepalive)

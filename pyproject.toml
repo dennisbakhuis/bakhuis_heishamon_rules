@@ -13,6 +13,7 @@ dependencies = [
 dev = [
     "mypy>=1.19.1",
     "pytest>=8",
+    "pytest-asyncio>=0.24",
     "pyyaml>=6.0.3",
     "ruff>=0.15.8",
     "types-pyyaml>=6.0.12.20250915",
@@ -27,7 +28,8 @@ packages = ["src/simulator"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["src"]
+pythonpath = ["src", "."]
+asyncio_mode = "auto"
 
 [tool.ruff]
 line-length = 100

@@ -13,11 +13,7 @@ from typing import Any
 from .interpreter import HeishaMonInterpreter
 
 # Default path to the rules file relative to this package
-_DEFAULT_RULES = (
-    Path(__file__).parent.parent
-    / "heishamon_rules"
-    / "heishamon_rules_commented.txt"
-)
+_DEFAULT_RULES = Path(__file__).parent.parent / "heishamon_rules" / "heishamon_rules_commented.txt"
 
 
 class HeishaMonSimulator:

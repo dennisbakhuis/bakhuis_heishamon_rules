@@ -5,17 +5,26 @@
         "title": "Set up Climate Manager",
         "description": "Connect to your Panasonic Aquarea heat pump via HeishaMon and MQTT.",
         "data": {
-          "mqtt_base": "MQTT base topic",
-          "room_sensor": "Room temperature sensor (optional)"
+          "mqtt_base": "MQTT base topic"
         },
         "data_description": {
-          "mqtt_base": "HeishaMon base topic, usually: panasonic_heat_pump",
-          "room_sensor": "Used for Room Temperature Control (RTC). Leave empty to skip."
+          "mqtt_base": "HeishaMon base topic, usually: panasonic_heat_pump"
         }
       }
     },
     "abort": {
       "already_configured": "Climate Manager is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Configure Room Sensor",
+        "description": "Set the Home Assistant entity that provides the room temperature for RTC correction. Example: {example}",
+        "data": {
+          "room_sensor": "Room Temperature Sensor"
+        }
+      }
     }
   }
 }

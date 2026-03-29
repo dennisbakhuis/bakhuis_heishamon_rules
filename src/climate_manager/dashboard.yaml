@@ -522,6 +522,35 @@ views:
               > Typical value: **21°C**. Range: 15–25°C in 0.5°C steps.
 
       # ----------------------------------------------------------
+      # SECTION: ROOM SENSOR (RTC Input)
+      # ----------------------------------------------------------
+      - type: vertical-stack
+        cards:
+          - type: markdown
+            content: "## 🌡️ Room Sensor (RTC Input)"
+
+          - type: entities
+            title: Current Room Temperature
+            entities:
+              - entity: sensor.climate_manager_room_sensor_temp
+                name: Room Temperature
+                icon: mdi:home-thermometer
+              - type: attribute
+                entity: sensor.climate_manager_room_sensor_temp
+                attribute: room_sensor_entity
+                name: Configured Entity ID
+                icon: mdi:identifier
+
+          - type: markdown
+            content: >
+              **Last reading:** {{ states.sensor.climate_manager_room_sensor_temp.last_changed
+              | as_timestamp | timestamp_custom('%Y-%m-%d %H:%M:%S', true)
+              if states('sensor.climate_manager_room_sensor_temp') not in ['unknown', 'unavailable']
+              else 'n/a' }}
+
+              To change the room sensor: **Settings → Integrations → Climate Manager → Configure**.
+
+      # ----------------------------------------------------------
       # SECTION A2 — WAR CURVE PARAMETERS
       # Tune the piecewise weather compensation curve from the UI.
       # Three control points map outdoor temperature to water target.

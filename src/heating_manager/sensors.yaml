@@ -224,6 +224,42 @@ template:
 
 
 # ============================================================
+# MQTT SENSORS (System prerequisites — HP settings)
+#
+# These three topics expose HP configuration settings that the
+# prerequisites check in the Settings tab reads.
+# The heishamon.yaml integration may or may not include them
+# depending on version — add these if the entities are missing.
+#
+# Add to configuration.yaml → mqtt: → sensor:
+#
+# mqtt:
+#   sensor:
+#
+#     - name: "Aquarea Heating Mode"
+#       unique_id: aquarea_heating_mode
+#       state_topic: "panasonic_heat_pump/main/Heating_Mode"
+#       # 0 = Compensation Curve (rules won't work correctly)
+#       # 1 = Direct             (required for rules)
+#       icon: mdi:thermometer-check
+#
+#     - name: "Aquarea Z1 Sensor Settings"
+#       unique_id: aquarea_z1_sensor_settings
+#       state_topic: "panasonic_heat_pump/main/Z1_Sensor_Settings"
+#       # 0 = Water sensor (required for direct temp control)
+#       # 1 = External thermostat
+#       # 2 = Internal thermostat / thermistor
+#       icon: mdi:water-thermometer
+#
+#     - name: "Aquarea Pump Flowrate Mode"
+#       unique_id: aquarea_pump_flowrate_mode
+#       state_topic: "panasonic_heat_pump/main/Pump_Flowrate_Mode"
+#       # 0 = DeltaT (recommended for pump duty control)
+#       # 1 = Maximum flow (J-series only)
+#       icon: mdi:pump
+
+
+# ============================================================
 # MQTT SENSORS (Room temperature via HeishaMon OpenTherm)
 #
 # Add to configuration.yaml under the existing `mqtt:` block:

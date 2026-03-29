@@ -143,8 +143,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data[DOMAIN][entry.entry_id]["listeners"].append(cancel_compressor)
 
     # Register dashboard with HA Lovelace system
+    # hass.data["lovelace"] is a LovelaceData dataclass — access via attributes, not dict keys
     lovelace_data = hass.data.get("lovelace")
-    if lovelace_data is not None and "dashboards" in lovelace_data:
+    if lovelace_data is not None and hasattr(lovelace_data, "dashboards"):
         dashboard_config = {
             "id": DASHBOARD_URL_PATH,
             "title": "Climate Manager",
@@ -153,7 +154,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             "require_admin": False,
             "filename": DASHBOARD_YAML,
         }
-        lovelace_data["dashboards"][DASHBOARD_URL_PATH] = lovelace_dashboard.LovelaceYAML(
+        lovelace_data.dashboards[DASHBOARD_URL_PATH] = lovelace_dashboard.LovelaceYAML(
             hass, dashboard_config, DASHBOARD_URL_PATH
         )
     else:
@@ -181,8 +182,8 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     # Remove dashboard from Lovelace and sidebar
     lovelace_data = hass.data.get("lovelace")
-    if lovelace_data is not None and DASHBOARD_URL_PATH in lovelace_data.get("dashboards", {}):
-        del lovelace_data["dashboards"][DASHBOARD_URL_PATH]
+    if lovelace_data is not None and hasattr(lovelace_data, "dashboards"):
+        lovelace_data.dashboards.pop(DASHBOARD_URL_PATH, None)
     async_remove_panel(hass, DASHBOARD_URL_PATH)
 
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)

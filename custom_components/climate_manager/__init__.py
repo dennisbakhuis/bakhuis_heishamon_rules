@@ -13,8 +13,10 @@ from __future__ import annotations
 
 import logging
 from datetime import timedelta
+from pathlib import Path
 
 from homeassistant.components import mqtt as mqtt_integration
+from homeassistant.components.frontend import async_register_built_in_panel, async_remove_panel
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.event import (
@@ -32,6 +34,8 @@ from .const import (
 )
 
 _LOGGER = logging.getLogger(__name__)
+
+DASHBOARD_YAML = str(Path(__file__).parent / "dashboard.yaml")
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -136,6 +140,20 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     )
     hass.data[DOMAIN][entry.entry_id]["listeners"].append(cancel_compressor)
 
+    # Register sidebar panel — shows dashboard.yaml bundled with the integration
+    async_register_built_in_panel(
+        hass,
+        component_name="lovelace",
+        sidebar_title="Climate Manager",
+        sidebar_icon="mdi:heat-pump",
+        frontend_url_path="climate-manager",
+        config={
+            "mode": "yaml",
+            "filename": DASHBOARD_YAML,
+        },
+        require_admin=False,
+    )
+
     return True
 
 
@@ -144,6 +162,9 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Cancel all listeners
     for cancel in hass.data[DOMAIN][entry.entry_id].get("listeners", []):
         cancel()
+
+    # Remove sidebar panel
+    async_remove_panel(hass, "climate-manager")
 
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
 

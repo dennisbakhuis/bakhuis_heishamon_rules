@@ -123,11 +123,11 @@ normally first and confirm everything is working.
 4. Enter your MQTT base topic (default: `panasonic_heat_pump`) and optionally
    your room temperature sensor entity ID for RTC
 
-5. Submit → all sensors, controls, and analysis entities are created automatically
+5. Submit → Home Assistant will restart and a **Climate Manager** entry will
+   appear automatically in your sidebar. Click it to open the dashboard.
 
-6. **Import the dashboard:**
-   Settings → Dashboards → Add Dashboard → give it a name → Edit (pencil) →
-   switch to YAML mode → paste the contents of `src/climate_manager/dashboard.yaml`
+No manual dashboard import is needed — the dashboard is bundled with the
+integration and registered automatically.
 
 That's it — no configuration.yaml editing required.
 

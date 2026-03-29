@@ -32,6 +32,30 @@ views:
     cards:
 
       # ----------------------------------------------------------
+      # SECTION 0 — MASTER ON/OFF SWITCH
+      # Digital equivalent of the on/off button on the HP panel.
+      # Publishes directly to SetHeatpump (0=off, 1=on) via MQTT.
+      # The rules continue running when the HP is off — they only
+      # control setpoint and pump duty, which the HP ignores while off.
+      # Requires the MQTT switch defined in helpers.yaml.
+      # ----------------------------------------------------------
+      - type: vertical-stack
+        cards:
+          - type: entities
+            title: Heat Pump Power
+            show_header_toggle: false
+            entities:
+              - entity: switch.aquarea_heatpump
+                name: Heat Pump On/Off
+                icon: mdi:power
+
+          - type: markdown
+            content: >
+              > Toggling this switch sends a direct on/off command to the heat pump —
+              > the same as pressing the on/off button on the physical controller.
+              > The HeishaMon rules keep running in the background regardless of this state.
+
+      # ----------------------------------------------------------
       # SECTION 1 — STATUS BAR
       # Quick at-a-glance indicators across the top.
       # Shows whether the pump is running, current operating mode,

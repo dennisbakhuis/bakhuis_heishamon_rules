@@ -88,9 +88,9 @@ MQTT_SENSOR_DESCRIPTIONS = [
         None,
         None,
         "mdi:snowflake-melt",
-        False,
+        True,
     ),
-    (TOPIC_QUIET_MODE, "Quiet Mode", "quiet_mode", None, None, None, "mdi:volume-off", False),
+    (TOPIC_QUIET_MODE, "Quiet Mode", "quiet_mode", None, None, None, "mdi:volume-off", True),
     (
         TOPIC_OUTSIDE_TEMP,
         "Outside Temp",
@@ -109,7 +109,7 @@ MQTT_SENSOR_DESCRIPTIONS = [
         SensorDeviceClass.TEMPERATURE,
         SensorStateClass.MEASUREMENT,
         "mdi:pipe",
-        False,
+        True,
     ),
     (
         TOPIC_INLET_TEMP,
@@ -159,7 +159,7 @@ MQTT_SENSOR_DESCRIPTIONS = [
         SensorDeviceClass.TEMPERATURE,
         SensorStateClass.MEASUREMENT,
         "mdi:water-thermometer",
-        False,
+        True,
     ),
     (
         TOPIC_COMPRESSOR_FREQ,
@@ -179,7 +179,7 @@ MQTT_SENSOR_DESCRIPTIONS = [
         None,
         SensorStateClass.MEASUREMENT,
         "mdi:water-pump",
-        False,
+        True,
     ),
     (
         TOPIC_PUMP_SPEED,
@@ -189,7 +189,7 @@ MQTT_SENSOR_DESCRIPTIONS = [
         None,
         SensorStateClass.MEASUREMENT,
         "mdi:speedometer",
-        False,
+        True,
     ),
     (
         TOPIC_MAX_PUMP_DUTY,
@@ -230,7 +230,7 @@ MQTT_SENSOR_DESCRIPTIONS = [
         None,
         SensorStateClass.TOTAL_INCREASING,
         "mdi:clock-outline",
-        False,
+        True,
     ),
     (
         TOPIC_START_STOP_COUNTER,
@@ -240,7 +240,7 @@ MQTT_SENSOR_DESCRIPTIONS = [
         None,
         SensorStateClass.TOTAL_INCREASING,
         "mdi:counter",
-        False,
+        True,
     ),
     (
         TOPIC_LAST_ERROR,
@@ -250,7 +250,7 @@ MQTT_SENSOR_DESCRIPTIONS = [
         None,
         None,
         "mdi:alert-circle-outline",
-        False,
+        True,
     ),
     (
         TOPIC_FAN1_SPEED,
@@ -260,7 +260,7 @@ MQTT_SENSOR_DESCRIPTIONS = [
         None,
         SensorStateClass.MEASUREMENT,
         "mdi:fan",
-        False,
+        True,
     ),
     (
         TOPIC_FAN2_SPEED,
@@ -270,7 +270,7 @@ MQTT_SENSOR_DESCRIPTIONS = [
         None,
         SensorStateClass.MEASUREMENT,
         "mdi:fan",
-        False,
+        True,
     ),
     (
         TOPIC_COMPRESSOR_CURRENT,
@@ -280,7 +280,7 @@ MQTT_SENSOR_DESCRIPTIONS = [
         SensorDeviceClass.CURRENT,
         SensorStateClass.MEASUREMENT,
         "mdi:current-ac",
-        False,
+        True,
     ),
     (
         TOPIC_HEATING_MODE,
@@ -310,7 +310,7 @@ MQTT_SENSOR_DESCRIPTIONS = [
         None,
         None,
         "mdi:pump",
-        False,
+        True,
     ),
     (
         TOPIC_OT_ROOM_TEMP_ECHO,

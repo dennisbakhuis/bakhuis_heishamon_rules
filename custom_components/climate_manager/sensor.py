@@ -42,8 +42,6 @@ from .const import (
     TOPIC_MAX_PUMP_DUTY,
     TOPIC_OPERATING_HOURS,
     TOPIC_OPERATING_MODE,
-    TOPIC_OT_ROOM_SETPOINT_ECHO,
-    TOPIC_OT_ROOM_TEMP_ECHO,
     TOPIC_OUTLET_TEMP,
     TOPIC_OUTSIDE_PIPE_TEMP,
     TOPIC_OUTSIDE_TEMP,
@@ -310,26 +308,6 @@ MQTT_SENSOR_DESCRIPTIONS = [
         None,
         None,
         "mdi:pump",
-        True,
-    ),
-    (
-        TOPIC_OT_ROOM_TEMP_ECHO,
-        "Room Temp",
-        "room_temp",
-        "°C",
-        SensorDeviceClass.TEMPERATURE,
-        SensorStateClass.MEASUREMENT,
-        "mdi:home-thermometer",
-        True,
-    ),
-    (
-        TOPIC_OT_ROOM_SETPOINT_ECHO,
-        "Room Setpoint Received",
-        "room_setpoint_received",
-        "°C",
-        SensorDeviceClass.TEMPERATURE,
-        SensorStateClass.MEASUREMENT,
-        "mdi:home-thermometer-outline",
         True,
     ),
 ]
@@ -612,7 +590,7 @@ class NetShiftSensor(HeishaMonTemplateSensor):
 
 
 class RTCDeltaSensor(HeishaMonTemplateSensor):
-    """RTC Delta = room_temp - room_setpoint_received."""
+    """RTC Delta = room_sensor_temp - room_setpoint_target (computed in HA)."""
 
     _attr_name = "RTC Delta"
     _attr_unique_id = "climate_manager_rtc_delta"
@@ -621,13 +599,13 @@ class RTCDeltaSensor(HeishaMonTemplateSensor):
     _attr_icon = "mdi:delta"
 
     _dependencies = [
-        "sensor.climate_manager_room_temp",
-        "sensor.climate_manager_room_setpoint_received",
+        "sensor.climate_manager_room_sensor_temp",
+        "number.climate_manager_room_setpoint_target",
     ]
 
     def _update(self) -> None:
-        room_state = self.hass.states.get("sensor.climate_manager_room_temp")
-        setpoint_state = self.hass.states.get("sensor.climate_manager_room_setpoint_received")
+        room_state = self.hass.states.get("sensor.climate_manager_room_sensor_temp")
+        setpoint_state = self.hass.states.get("number.climate_manager_room_setpoint_target")
         if (
             room_state is None
             or room_state.state in ("unknown", "unavailable")
@@ -637,15 +615,14 @@ class RTCDeltaSensor(HeishaMonTemplateSensor):
             self._attr_native_value = None
             return
         try:
-            room = float(room_state.state)
-            setpoint = float(setpoint_state.state)
-            self._attr_native_value = round(room - setpoint, 2)
+            delta = float(room_state.state) - float(setpoint_state.state)
+            self._attr_native_value = round(delta, 2)
         except (ValueError, TypeError):
             self._attr_native_value = None
 
 
 class RTCCorrectionSensor(HeishaMonTemplateSensor):
-    """RTC Correction — 8-band lookup on RTC delta."""
+    """RTC Correction — 8-band lookup on RTC delta (computed directly from HA-native sensors)."""
 
     _attr_name = "RTC Correction"
     _attr_unique_id = "climate_manager_rtc_correction"
@@ -653,15 +630,24 @@ class RTCCorrectionSensor(HeishaMonTemplateSensor):
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_icon = "mdi:thermometer-plus-outline"
 
-    _dependencies = ["sensor.climate_manager_rtc_delta"]
+    _dependencies = [
+        "sensor.climate_manager_room_sensor_temp",
+        "number.climate_manager_room_setpoint_target",
+    ]
 
     def _update(self) -> None:
-        state = self.hass.states.get("sensor.climate_manager_rtc_delta")
-        if state is None or state.state in ("unknown", "unavailable"):
+        room_state = self.hass.states.get("sensor.climate_manager_room_sensor_temp")
+        setpoint_state = self.hass.states.get("number.climate_manager_room_setpoint_target")
+        if (
+            room_state is None
+            or room_state.state in ("unknown", "unavailable")
+            or setpoint_state is None
+            or setpoint_state.state in ("unknown", "unavailable")
+        ):
             self._attr_native_value = None
             return
         try:
-            delta = float(state.state)
+            delta = float(room_state.state) - float(setpoint_state.state)
         except (ValueError, TypeError):
             self._attr_native_value = None
             return

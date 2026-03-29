@@ -11,7 +11,7 @@ Covers:
   G - Weather curve accuracy: spot-check interpolated setpoints
   H - RTC corrections: parametrised delta → expected rtcShift
   I - RTC disabled: rtcShift stays 0 regardless of delta
-  J - RTC missing sensor: rtcShift stays 0 when ?roomTemp not set
+  J - RTC missing sensor: rtcShift stays 0 when ?outsideTemp not set
   K - Soft-start ramp: sqrt curve at various compRunSec values
   L - Soft-start disabled: shift stays 0 when enableSoftStart=0
   M - Soft-start warm outdoor: shift stays 0 when outdoor > softStartOutdoorMax
@@ -414,7 +414,7 @@ class TestScenarioH_RTCCorrections:
     """
     Verify calculateRTC() produces the correct #rtcShift for each delta band.
 
-    Correction table (delta = ?roomTemp - ?roomTempSet):
+    Correction table (delta = ?outsideTemp, pre-computed by HA as room_temp − setpoint):
       delta > +1.5°C  → -3
       +1.0 to +1.5°C  → -2
       +0.5 to +1.0°C  → -1
@@ -447,9 +447,8 @@ class TestScenarioH_RTCCorrections:
 
     @pytest.mark.parametrize("delta,expected_shift,desc", CASES)
     def test_rtc_shift(self, delta: float, expected_shift: int, desc: str) -> None:
-        room_setpoint = 21.0
-        room_temp = room_setpoint + delta
-        self.sim.set_opentherm(roomTemp=room_temp, roomTempSet=room_setpoint)
+        # HA pre-computes delta = room_temp - setpoint and publishes to ?outsideTemp
+        self.sim.set_opentherm(outsideTemp=delta)
         self.sim.call_function("calculateRTC")
         result = self.sim.get_global("rtcShift")
         assert result == expected_shift, f"{desc}: expected {expected_shift}, got {result}"
@@ -472,8 +471,8 @@ class TestScenarioI_RTCDisabled:
         self.sim.boot()
         # Disable RTC
         self.sim.set_globals(enableRTC=0)
-        # Set room temperatures with a large delta that would normally give -3
-        self.sim.set_opentherm(roomTemp=24.0, roomTempSet=21.0)  # delta = +3.0
+        # Set a large delta via ?outsideTemp that would normally give -3
+        self.sim.set_opentherm(outsideTemp=3.0)  # delta = +3.0
 
     def test_rtc_shift_zero_when_disabled(self) -> None:
         self.sim.call_function("calculateRTC")
@@ -495,27 +494,37 @@ class TestScenarioI_RTCDisabled:
 
 class TestScenarioJ_RTCMissingSensor:
     """
-    When ?roomTemp is not set (sensor not available), calculateRTC() should
+    When ?outsideTemp is not set (HA has not published yet), calculateRTC() should
     set #rtcShift = 0 (safe fallback, no adjustment).
+
+    Also tests the plausible-range guard: deltas outside [-5, +5] are ignored
+    (e.g. HeishaMon default -99 on startup).
     """
 
     def setup_method(self) -> None:
         self.sim = HeishaMonSimulator()
         self.sim.set_sensors(Outside_Temp=10.0)
         self.sim.boot()
-        # RTC enabled, but DO NOT set roomTemp or roomTempSet
+        # RTC enabled, but DO NOT set outsideTemp
 
-    def test_rtc_shift_zero_when_roomtemp_missing(self) -> None:
+    def test_rtc_shift_zero_when_outsidetemp_missing(self) -> None:
         self.sim.call_function("calculateRTC")
         shift = self.sim.get_global("rtcShift")
-        assert shift == 0, f"Expected rtcShift=0 when sensor missing, got {shift}"
+        assert shift == 0, f"Expected rtcShift=0 when ?outsideTemp not set, got {shift}"
 
-    def test_rtc_shift_zero_when_only_roomtempset_missing(self) -> None:
-        """Only roomTemp set but roomTempSet missing → shift stays 0."""
-        self.sim.set_opentherm(roomTemp=22.0)
+    def test_rtc_shift_zero_when_delta_too_large(self) -> None:
+        """Delta > +5 (out of plausible range) → guard clamps shift to 0."""
+        self.sim.set_opentherm(outsideTemp=10.0)  # way out of range
         self.sim.call_function("calculateRTC")
         shift = self.sim.get_global("rtcShift")
-        assert shift == 0, f"Expected rtcShift=0 when roomTempSet missing, got {shift}"
+        assert shift == 0, f"Expected rtcShift=0 when delta out of range (+10), got {shift}"
+
+    def test_rtc_shift_zero_when_delta_too_negative(self) -> None:
+        """Delta < -5 (e.g. HeishaMon default -99) → guard clamps shift to 0."""
+        self.sim.set_opentherm(outsideTemp=-99.0)
+        self.sim.call_function("calculateRTC")
+        shift = self.sim.get_global("rtcShift")
+        assert shift == 0, f"Expected rtcShift=0 when delta out of range (-99), got {shift}"
 
 
 # ---------------------------------------------------------------------------

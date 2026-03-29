@@ -35,13 +35,12 @@ TOPIC_COMPRESSOR_CURRENT = "main/Compressor_Current"
 TOPIC_HEATING_MODE = "main/Heating_Mode"
 TOPIC_Z1_SENSOR_SETTINGS = "main/Z1_Sensor_Settings"
 TOPIC_PUMP_FLOWRATE_MODE = "main/Pump_Flowrate_Mode"
-TOPIC_OT_ROOM_TEMP_ECHO = "opentherm/write/roomTemp"
-TOPIC_OT_ROOM_SETPOINT_ECHO = "opentherm/write/roomTempSet"
 
 # Command topics
 CMD_SET_HEATPUMP = "commands/SetHeatpump"
 CMD_SET_QUIET_MODE = "commands/SetQuietMode"
 CMD_SET_OPERATION_MODE = "commands/SetOperationMode"
 CMD_SET_DHW_TEMP = "commands/SetDHWTemp"
-CMD_OT_ROOM_TEMP = "opentherm/read/roomTemp"
-CMD_OT_ROOM_SETPOINT = "opentherm/read/roomTempSet"
+CMD_OT_ROOM_TEMP = "opentherm/read/roomTemp"       # kept for reference, no longer published
+CMD_OT_RTC_DELTA = "opentherm/read/outsideTemp"    # NEW: publishes pre-computed RTC delta
+CMD_OT_ROOM_SETPOINT = "opentherm/read/roomTempSet"  # kept for reference, no longer published

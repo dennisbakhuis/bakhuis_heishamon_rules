@@ -14,41 +14,12 @@
 #   After adding, restart Home Assistant (or reload input helpers
 #   via Settings → System → Restart → Quick Reload).
 #
+# NOTE: The MQTT switch (switch.heishamon_heatpump) and all MQTT
+# sensors are defined in sensors.yaml. Add them to configuration.yaml
+# under `mqtt: switch:` and `mqtt: sensor:` respectively.
+#
 # See README.md for full installation instructions.
 # ============================================================
-
-
-# ============================================================
-# MQTT SWITCH — Heat pump master on/off
-#
-# This creates a proper toggle switch in HA that:
-#   - Reads current HP state from: panasonic_heat_pump/main/Heatpump_State
-#   - Sends on/off commands to:    panasonic_heat_pump/commands/SetHeatpump
-#
-# Paste under `mqtt:` → `switch:` in configuration.yaml:
-#
-#   mqtt:
-#     switch:
-#       - name: "Aquarea Heat Pump"
-#         ...
-#
-# ============================================================
-
-# mqtt:
-#   switch:
-#
-#     - name: "Aquarea Heat Pump"
-#       unique_id: aquarea_heatpump
-#       # Reads the current HP on/off state published by HeishaMon
-#       state_topic: "panasonic_heat_pump/main/Heatpump_State"
-#       # Sends on/off commands directly to HeishaMon → heat pump
-#       command_topic: "panasonic_heat_pump/commands/SetHeatpump"
-#       payload_on: "1"
-#       payload_off: "0"
-#       state_on: "1"
-#       state_off: "0"
-#       icon: mdi:heat-pump
-#       # retain: true   # uncomment if you want the last command retained on broker restart
 
 
 # ============================================================

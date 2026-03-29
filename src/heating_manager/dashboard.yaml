@@ -1,3 +1,9 @@
+# All sensor entities follow the heishamon_* naming convention
+# defined in sensors.yaml. The only exceptions are the
+# input_select/input_number controls from heishamon.yaml
+# (quiet mode, heat mode, shifts).
+# To adapt to a different MQTT prefix, edit sensors.yaml only.
+#
 # ============================================================
 # Heating Manager — Home Assistant Lovelace Dashboard
 # For Panasonic Aquarea via HeishaMon
@@ -10,9 +16,8 @@
 # Built-in cards only — no HACS / custom cards required.
 # See README.md for installation instructions.
 #
-# Entity IDs are based on the standard HeishaMon HA integration
-# (heishamon.yaml). Adjust any entity_id prefix if your HA
-# instance generated different names during first import.
+# All entity IDs use the heishamon_* naming convention defined in
+# sensors.yaml. To change the MQTT base topic, edit sensors.yaml only.
 #
 # Template sensors required for View 2 are in sensors.yaml.
 # Input helpers required for View 3 are in helpers.yaml.
@@ -37,7 +42,7 @@ views:
       # Publishes directly to SetHeatpump (0=off, 1=on) via MQTT.
       # The rules continue running when the HP is off — they only
       # control setpoint and pump duty, which the HP ignores while off.
-      # Requires the MQTT switch defined in helpers.yaml.
+      # Requires the MQTT switch defined in sensors.yaml.
       # ----------------------------------------------------------
       - type: vertical-stack
         cards:
@@ -45,7 +50,7 @@ views:
             title: Heat Pump Power
             show_header_toggle: false
             entities:
-              - entity: switch.aquarea_heatpump
+              - entity: switch.heishamon_heatpump
                 name: Heat Pump On/Off
                 icon: mdi:power
 
@@ -71,38 +76,38 @@ views:
 
               # HP on/off state
               - type: entity
-                entity: sensor.aquarea_power_state
+                entity: sensor.heishamon_heatpump_state
                 name: HP State
                 icon: mdi:power
 
               # Operating mode (Heat / DHW / Heat+DHW / etc.)
               - type: entity
-                entity: sensor.aquarea_mode
+                entity: sensor.heishamon_operating_mode
                 name: Mode
                 icon: mdi:cog-outline
 
               # Defrost state — visually stands out when active
               - type: entity
-                entity: sensor.aquarea_defrost_state
+                entity: sensor.heishamon_defrosting_state
                 name: Defrost
                 icon: mdi:snowflake-melt
 
               # Quiet mode level (Off / 1 / 2 / 3 / Scheduled)
               - type: entity
-                entity: sensor.aquarea_quiet_mode
+                entity: sensor.heishamon_quiet_mode
                 name: Quiet Mode
                 icon: mdi:volume-off
 
               # Compressor frequency — proxy for how hard the HP is working
               - type: entity
-                entity: sensor.aquarea_compressor_frequency
+                entity: sensor.heishamon_compressor_freq
                 name: Compressor
                 icon: mdi:sine-wave
 
           # Defrost alert banner — only visible when defrost is active
           - type: conditional
             conditions:
-              - entity: sensor.aquarea_defrost_state
+              - entity: sensor.heishamon_defrosting_state
                 state: Active
             card:
               type: markdown
@@ -124,36 +129,36 @@ views:
             title: Current Temperatures
             columns: 3
             entities:
-              - entity: sensor.aquarea_outside_ambient_temperature
+              - entity: sensor.heishamon_outside_temp
                 name: Outdoor
                 icon: mdi:thermometer
 
-              - entity: sensor.aquarea_outside_pipe_temperature
+              - entity: sensor.heishamon_outside_pipe_temp
                 name: Outside Pipe
                 icon: mdi:pipe
 
-              - entity: sensor.aquarea_inlet_temperature
+              - entity: sensor.heishamon_inlet_temp
                 name: Inlet
                 icon: mdi:thermometer-water
 
-              - entity: sensor.aquarea_outlet_temperature
+              - entity: sensor.heishamon_outlet_temp
                 name: Outlet
                 icon: mdi:thermometer-high
 
-              - entity: sensor.aquarea_z1_heat_request_temperature
+              - entity: sensor.heishamon_z1_heat_request
                 name: Z1 Target
                 icon: mdi:target
 
-              - entity: sensor.aquarea_z1_water_temperature
+              - entity: sensor.heishamon_z1_water_temp
                 name: Z1 Water
                 icon: mdi:water-thermometer
 
               # Room temp / setpoint — requires MQTT sensors from sensors.yaml
-              - entity: sensor.heishamon_room_temperature
+              - entity: sensor.heishamon_room_temp
                 name: Room Temp
                 icon: mdi:home-thermometer
 
-              - entity: sensor.heishamon_room_setpoint
+              - entity: sensor.heishamon_room_setpoint_received
                 name: Room Setpoint
                 icon: mdi:home-thermometer-outline
 
@@ -171,13 +176,13 @@ views:
             hours_to_show: 24
             refresh_interval: 60
             entities:
-              - entity: sensor.aquarea_outlet_temperature
+              - entity: sensor.heishamon_outlet_temp
                 name: Outlet
-              - entity: sensor.aquarea_inlet_temperature
+              - entity: sensor.heishamon_inlet_temp
                 name: Inlet
-              - entity: sensor.aquarea_outside_ambient_temperature
+              - entity: sensor.heishamon_outside_temp
                 name: Outdoor
-              - entity: sensor.aquarea_z1_heat_request_temperature
+              - entity: sensor.heishamon_z1_heat_request
                 name: Z1 Heat Request
 
       # ----------------------------------------------------------
@@ -196,25 +201,13 @@ views:
             title: Power Now
             columns: 3
             entities:
-              - entity: sensor.aquarea_heat_power_produced
+              - entity: sensor.heishamon_heat_power_produced
                 name: Heat Produced
                 icon: mdi:radiator
 
-              - entity: sensor.aquarea_heat_power_consumed
+              - entity: sensor.heishamon_heat_power_consumed
                 name: Electricity In
                 icon: mdi:lightning-bolt
-
-              - entity: sensor.heishamon_power_produced
-                name: Total Produced
-                icon: mdi:solar-power-variant
-
-              - entity: sensor.heishamon_power_consumed
-                name: Total Consumed
-                icon: mdi:transmission-tower
-
-              - entity: sensor.heishamon_cop
-                name: COP (all)
-                icon: mdi:percent
 
               - entity: sensor.heishamon_heat_cop
                 name: COP (heat)
@@ -223,8 +216,6 @@ views:
           - type: markdown
             title: Live Efficiency
             content: >
-              ### COP (Combined): {{ states('sensor.heishamon_cop') }} ×
-
               ### COP (Heat only): {{ states('sensor.heishamon_heat_cop') }} ×
 
               > _COP > 3 is good for floor heating. COP > 4 is excellent._
@@ -234,9 +225,9 @@ views:
             hours_to_show: 24
             refresh_interval: 60
             entities:
-              - entity: sensor.aquarea_heat_power_produced
+              - entity: sensor.heishamon_heat_power_produced
                 name: Heat Produced (W)
-              - entity: sensor.aquarea_heat_power_consumed
+              - entity: sensor.heishamon_heat_power_consumed
                 name: Heat Consumed (W)
 
       # ----------------------------------------------------------
@@ -252,37 +243,37 @@ views:
           - type: entities
             title: Compressor & Pump
             entities:
-              - entity: sensor.aquarea_compressor_operating_hours
+              - entity: sensor.heishamon_operating_hours
                 name: Compressor Operating Hours
                 icon: mdi:clock-outline
 
-              - entity: sensor.aquarea_compressor_start_stop_counter
+              - entity: sensor.heishamon_start_stop_counter
                 name: Compressor Starts / Stops
                 icon: mdi:counter
 
-              - entity: sensor.aquarea_pump_flow
+              - entity: sensor.heishamon_pump_flow
                 name: Pump Flow
                 icon: mdi:water-pump
 
-              - entity: sensor.aquarea_pump_speed
+              - entity: sensor.heishamon_pump_speed
                 name: Pump Speed
                 icon: mdi:speedometer
 
               - type: divider
 
-              - entity: sensor.aquarea_fan_1_speed
+              - entity: sensor.heishamon_fan1_speed
                 name: Fan 1 Speed
                 icon: mdi:fan
 
-              - entity: sensor.aquarea_fan_2_speed
+              - entity: sensor.heishamon_fan2_speed
                 name: Fan 2 Speed
                 icon: mdi:fan
 
-              - entity: sensor.aquarea_compressor_current
+              - entity: sensor.heishamon_compressor_current
                 name: Compressor Current
                 icon: mdi:current-ac
 
-              - entity: sensor.aquarea_last_error
+              - entity: sensor.heishamon_last_error
                 name: Last Error Code
                 icon: mdi:alert-circle-outline
 
@@ -312,7 +303,7 @@ views:
           - type: entities
             title: WAR Setpoint vs Actual
             entities:
-              - entity: sensor.aquarea_outside_ambient_temperature
+              - entity: sensor.heishamon_outside_temp
                 name: Outdoor Temperature (WAR input)
                 icon: mdi:thermometer-chevron-up
 
@@ -320,7 +311,7 @@ views:
                 name: WAR Setpoint (curve only)
                 icon: mdi:chart-bell-curve
 
-              - entity: sensor.aquarea_z1_heat_request_temperature
+              - entity: sensor.heishamon_z1_heat_request
                 name: Actual Z1 Request (sent by rules)
                 icon: mdi:target
 
@@ -333,13 +324,13 @@ views:
             content: >
               ### Weather Curve Analysis
 
-              Outdoor: **{{ states('sensor.aquarea_outside_ambient_temperature') }}°C**
+              Outdoor: **{{ states('sensor.heishamon_outside_temp') }}°C**
 
               WAR setpoint: **{{ states('sensor.heishamon_war_setpoint') }}°C**
 
-              Actual Z1 request: **{{ states('sensor.aquarea_z1_heat_request_temperature') }}°C**
+              Actual Z1 request: **{{ states('sensor.heishamon_z1_heat_request') }}°C**
 
-              Net shift: **{{ (states('sensor.aquarea_z1_heat_request_temperature') | float(0) - states('sensor.heishamon_war_setpoint') | float(0)) | round(1) }}°C**
+              Net shift: **{{ (states('sensor.heishamon_z1_heat_request') | float(0) - states('sensor.heishamon_war_setpoint') | float(0)) | round(1) }}°C**
 
               > Shift > 0 = min-freq boost or cold compensation active.
               > Shift < 0 = RTC reducing heat (room is warm) or soft-start ramp.
@@ -357,11 +348,11 @@ views:
           - type: entities
             title: RTC Inputs & Correction
             entities:
-              - entity: sensor.heishamon_room_temperature
+              - entity: sensor.heishamon_room_temp
                 name: Room Temperature (measured)
                 icon: mdi:home-thermometer
 
-              - entity: sensor.heishamon_room_setpoint
+              - entity: sensor.heishamon_room_setpoint_received
                 name: Room Setpoint (target)
                 icon: mdi:home-thermometer-outline
 
@@ -378,8 +369,8 @@ views:
             content: >
               ### Room Temperature Control
 
-              Room: **{{ states('sensor.heishamon_room_temperature') }}°C**
-              vs setpoint **{{ states('sensor.heishamon_room_setpoint') }}°C**
+              Room: **{{ states('sensor.heishamon_room_temp') }}°C**
+              vs setpoint **{{ states('sensor.heishamon_room_setpoint_received') }}°C**
 
               Delta: **{{ states('sensor.heishamon_rtc_delta') }}°C**
 
@@ -404,7 +395,7 @@ views:
           - type: entities
             title: Soft-Start Status
             entities:
-              - entity: sensor.aquarea_compressor_frequency
+              - entity: sensor.heishamon_compressor_freq
                 name: Compressor Frequency (live)
                 icon: mdi:sine-wave
 
@@ -429,8 +420,8 @@ views:
               {% set mins = (secs / 60) | round(1) %}
               {% set progress = states('sensor.heishamon_softstart_progress') | float(0) %}
               {% set shift = states('sensor.heishamon_softstart_shift') | float(0) %}
-              {% set outdoor = states('sensor.aquarea_outside_ambient_temperature') | float(99) %}
-              {% set freq = states('sensor.aquarea_compressor_frequency') | float(0) %}
+              {% set outdoor = states('sensor.heishamon_outside_temp') | float(99) %}
+              {% set freq = states('sensor.heishamon_compressor_freq') | float(0) %}
 
               {% if outdoor > 8 %}
               Outdoor temperature is **{{ outdoor }}°C** — soft-start only activates below 8°C.
@@ -471,9 +462,9 @@ views:
             entities:
               - entity: sensor.heishamon_war_setpoint
                 name: WAR Setpoint (curve only)
-              - entity: sensor.aquarea_z1_heat_request_temperature
+              - entity: sensor.heishamon_z1_heat_request
                 name: Z1 Heat Request (rules output)
-              - entity: sensor.aquarea_main_target_temp
+              - entity: sensor.heishamon_target_temp
                 name: Main Target (HP confirmed)
 
           - type: markdown
@@ -586,18 +577,18 @@ views:
               # Heating Mode: must be 1 (Direct) for rules to set absolute water temps.
               # If 0 (Compensation Curve), the HP treats the setpoint as a curve offset
               # and WAR will not behave as expected.
-              - entity: sensor.aquarea_heating_mode
+              - entity: sensor.heishamon_heating_mode
                 name: "Heating Mode  (required: Direct = 1)"
                 icon: mdi:thermometer-check
 
               # Z1 Sensor Setting: must be 0 (Water sensor) for direct temperature control.
               # If set to thermostat mode, direct setpoints are ignored.
-              - entity: sensor.aquarea_z1_sensor_settings
+              - entity: sensor.heishamon_z1_sensor_settings
                 name: "Z1 Sensor  (required: Water = 0)"
                 icon: mdi:water-thermometer
 
               # Pump Flowrate Mode: 0 (DeltaT) recommended for pump duty control.
-              - entity: sensor.aquarea_pump_flowrate_mode
+              - entity: sensor.heishamon_pump_flowrate_mode
                 name: "Pump Flowrate Mode  (recommended: DeltaT = 0)"
                 icon: mdi:pump
 
@@ -618,7 +609,7 @@ views:
 
               1. HeishaMon web UI → **Settings** → confirm **OpenTherm** is enabled
               2. After enabling, run the **HeishaMon: Sync room temperature** automation once manually
-              3. Check `sensor.heishamon_room_temperature` below — if it shows a value, OpenTherm is working
+              3. Check `sensor.heishamon_room_temp` below — if it shows a value, OpenTherm is working
 
           - type: entities
             title: OpenTherm / RTC Status (inferred)
@@ -626,11 +617,11 @@ views:
             entities:
               # If this sensor has a value, OpenTherm is enabled and HA → HeishaMon RTC path works.
               # If unavailable, check HeishaMon Settings → OpenTherm and rerun the sync automation.
-              - entity: sensor.heishamon_room_temperature
+              - entity: sensor.heishamon_room_temp
                 name: "Room Temp received by HeishaMon  (must have value for RTC)"
                 icon: mdi:home-thermometer
 
-              - entity: sensor.heishamon_room_setpoint
+              - entity: sensor.heishamon_room_setpoint_received
                 name: "Room Setpoint received by HeishaMon  (must have value for RTC)"
                 icon: mdi:home-thermometer-outline
 
@@ -668,7 +659,7 @@ views:
               > then flash/upload to your HeishaMon device to change these settings.
 
       # ----------------------------------------------------------
-      # SECTION D — MQTT DIAGNOSTICS
+      # SECTION E — MQTT DIAGNOSTICS
       # Verify HeishaMon is alive and publishing data to MQTT.
       # If sensors stop updating, check the HeishaMon device first.
       # ----------------------------------------------------------
@@ -683,19 +674,19 @@ views:
             entities:
               # These entities show when HeishaMon last published.
               # If they haven't updated in >5 minutes, check MQTT.
-              - entity: sensor.aquarea_outside_ambient_temperature
+              - entity: sensor.heishamon_outside_temp
                 name: Outdoor Temp (last update)
                 icon: mdi:thermometer
 
-              - entity: sensor.aquarea_compressor_frequency
+              - entity: sensor.heishamon_compressor_freq
                 name: Compressor Freq (last update)
                 icon: mdi:sine-wave
 
-              - entity: sensor.aquarea_z1_heat_request_temperature
+              - entity: sensor.heishamon_z1_heat_request
                 name: Z1 Heat Request (last update)
                 icon: mdi:target
 
-              - entity: sensor.heishamon_room_temperature
+              - entity: sensor.heishamon_room_temp
                 name: Room Temp (MQTT echo, last update)
                 icon: mdi:home-thermometer
 

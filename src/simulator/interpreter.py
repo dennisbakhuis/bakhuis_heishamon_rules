@@ -23,7 +23,6 @@ import re
 from pathlib import Path
 from typing import Any
 
-
 # ---------------------------------------------------------------------------
 # Regex helpers
 # ---------------------------------------------------------------------------
@@ -96,6 +95,7 @@ def _extract_blocks(src: str) -> dict[str, str]:
 # Pre-processing: join multi-line conditions into a single logical line
 # ---------------------------------------------------------------------------
 
+
 def _count_parens(s: str) -> int:
     """Return open-paren depth: positive means unclosed '('."""
     depth = 0
@@ -125,8 +125,10 @@ def _preprocess_lines(lines: list[str]) -> list[str]:
                 if i + 1 >= len(lines):
                     break
                 i += 1
-                stripped = stripped.rstrip() + " " + (
-                    lines[i].strip() if isinstance(lines[i], str) else lines[i]
+                stripped = (
+                    stripped.rstrip()
+                    + " "
+                    + (lines[i].strip() if isinstance(lines[i], str) else lines[i])
                 )
             result.append(stripped)
             i += 1
@@ -149,6 +151,7 @@ def _preprocess_lines(lines: list[str]) -> list[str]:
 # Expression translation
 # ---------------------------------------------------------------------------
 
+
 def _translate_expr(expr: str) -> str:
     """
     Translate a HeishaMon expression to Python:
@@ -167,6 +170,7 @@ def _translate_expr(expr: str) -> str:
 # Argument splitting
 # ---------------------------------------------------------------------------
 
+
 def _split_args(raw: str) -> list[str]:
     """
     Split a comma-separated argument list, respecting parentheses nesting.
@@ -176,7 +180,7 @@ def _split_args(raw: str) -> list[str]:
     depth = 0
     current: list[str] = []
     for ch in raw:
-        if ch == "(" :
+        if ch == "(":
             depth += 1
             current.append(ch)
         elif ch == ")":
@@ -196,8 +200,9 @@ def _split_args(raw: str) -> list[str]:
 # Statement executor
 # ---------------------------------------------------------------------------
 
-def _execute_body(body: str, interp: "HeishaMonInterpreter", extra_locals: dict) -> None:
-    raw = [l for l in body.splitlines()]
+
+def _execute_body(body: str, interp: HeishaMonInterpreter, extra_locals: dict) -> None:
+    raw = list(body.splitlines())
     processed = _preprocess_lines(raw)
     _exec_lines(processed, 0, len(processed), interp, extra_locals)
 
@@ -206,7 +211,7 @@ def _exec_lines(
     lines: list[str],
     start: int,
     end: int,
-    interp: "HeishaMonInterpreter",
+    interp: HeishaMonInterpreter,
     extra_locals: dict,
 ) -> int:
     i = start
@@ -260,7 +265,7 @@ def _exec_if_block(
     lines: list[str],
     start: int,
     end: int,
-    interp: "HeishaMonInterpreter",
+    interp: HeishaMonInterpreter,
     extra_locals: dict,
 ) -> int:
     """
@@ -340,6 +345,7 @@ def _exec_if_block(
 # ---------------------------------------------------------------------------
 # Interpreter
 # ---------------------------------------------------------------------------
+
 
 class HeishaMonInterpreter:
     """
@@ -499,9 +505,7 @@ class HeishaMonInterpreter:
         try:
             return eval(py_expr, {"__builtins__": {}}, ns)  # noqa: S307
         except Exception as exc:
-            raise RuntimeError(
-                f"Failed to eval {expr!r} → {py_expr!r}: {exc}"
-            ) from exc
+            raise RuntimeError(f"Failed to eval {expr!r} → {py_expr!r}: {exc}") from exc
 
     # ------------------------------------------------------------------
     # Convenience accessors

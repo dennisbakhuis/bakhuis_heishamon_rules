@@ -544,7 +544,80 @@ views:
               > defined in `heishamon.yaml`. The heat pump responds within one polling cycle (~10s).
 
       # ----------------------------------------------------------
-      # SECTION C — FEATURE STATUS (read-only)
+      # SECTION C — SYSTEM PREREQUISITES CHECK
+      # Verifies that HeishaMon and HP settings are configured
+      # correctly for the rules to work as expected.
+      # Three settings are readable from MQTT; OpenTherm status
+      # must be inferred from whether room temp data is arriving.
+      # ----------------------------------------------------------
+      - type: vertical-stack
+        cards:
+          - type: markdown
+            content: "## ✅ System Prerequisites Check"
+
+          - type: entities
+            title: Heat Pump Settings (read from HP via HeishaMon)
+            show_header_toggle: false
+            entities:
+              # Heating Mode: must be 1 (Direct) for rules to set absolute water temps.
+              # If 0 (Compensation Curve), the HP treats the setpoint as a curve offset
+              # and WAR will not behave as expected.
+              - entity: sensor.aquarea_heating_mode
+                name: "Heating Mode  (required: Direct = 1)"
+                icon: mdi:thermometer-check
+
+              # Z1 Sensor Setting: must be 0 (Water sensor) for direct temperature control.
+              # If set to thermostat mode, direct setpoints are ignored.
+              - entity: sensor.aquarea_z1_sensor_settings
+                name: "Z1 Sensor  (required: Water = 0)"
+                icon: mdi:water-thermometer
+
+              # Pump Flowrate Mode: 0 (DeltaT) recommended for pump duty control.
+              - entity: sensor.aquarea_pump_flowrate_mode
+                name: "Pump Flowrate Mode  (recommended: DeltaT = 0)"
+                icon: mdi:pump
+
+          - type: markdown
+            content: >
+              ### How to read this
+
+              | Setting | Required value | Why |
+              |---------|---------------|-----|
+              | Heating Mode | **1 = Direct** | Rules write absolute water temperatures. In compensation curve mode (0) the HP interprets setpoints as offsets — WAR will not work correctly. |
+              | Z1 Sensor | **0 = Water** | Direct temperature control requires a water sensor on Z1. Thermostat modes ignore the setpoint written by the rules. |
+              | Pump Flowrate | **0 = DeltaT** | Pump duty control works best in DeltaT mode. In maximum-flow mode (1, J-series only) pump duty commands may have no effect. |
+
+              ### OpenTherm (required for RTC)
+
+              OpenTherm status is **not published to MQTT** — it cannot be checked automatically.
+              Verify it manually:
+
+              1. HeishaMon web UI → **Settings** → confirm **OpenTherm** is enabled
+              2. After enabling, run the **HeishaMon: Sync room temperature** automation once manually
+              3. Check `sensor.heishamon_room_temperature` below — if it shows a value, OpenTherm is working
+
+          - type: entities
+            title: OpenTherm / RTC Status (inferred)
+            show_header_toggle: false
+            entities:
+              # If this sensor has a value, OpenTherm is enabled and HA → HeishaMon RTC path works.
+              # If unavailable, check HeishaMon Settings → OpenTherm and rerun the sync automation.
+              - entity: sensor.heishamon_room_temperature
+                name: "Room Temp received by HeishaMon  (must have value for RTC)"
+                icon: mdi:home-thermometer
+
+              - entity: sensor.heishamon_room_setpoint
+                name: "Room Setpoint received by HeishaMon  (must have value for RTC)"
+                icon: mdi:home-thermometer-outline
+
+          - type: markdown
+            content: >
+              > **To change HP settings:** use the HeishaMon web UI or the HA controls below.
+              > Heating Mode and Z1 Sensor are configured in the HP's service menu or via
+              > HeishaMon's **SetHeatMode** / **SetCurves** commands.
+
+      # ----------------------------------------------------------
+      # SECTION D — FEATURE STATUS (read-only)
       # Feature flags are set in the HeishaMon rules file — they
       # cannot be toggled from HA. This card explains what's active.
       # ----------------------------------------------------------

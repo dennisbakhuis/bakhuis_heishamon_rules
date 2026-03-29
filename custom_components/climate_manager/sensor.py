@@ -820,10 +820,14 @@ class RoomSensorTempSensor(HeishaMonTemplateSensor):
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_icon = "mdi:home-thermometer"
 
-    _dependencies: list[str] = []  # no static deps — dynamic in async_added_to_hass
+    # Track changes to the text entity (so we re-resolve when entity ID changes)
+    _dependencies = ["text.climate_manager_room_sensor_entity"]
 
     def _get_room_entity(self) -> str:
-        """Return the configured room sensor entity ID."""
+        """Return the active room sensor entity ID (text entity takes priority)."""
+        text_state = self.hass.states.get("text.climate_manager_room_sensor_entity")
+        if text_state and text_state.state not in ("unknown", "unavailable", ""):
+            return text_state.state.strip()
         return (
             self._entry.options.get("room_sensor")
             or self._entry.data.get("room_sensor", "")
@@ -847,9 +851,9 @@ class RoomSensorTempSensor(HeishaMonTemplateSensor):
             self._attr_native_value = None
 
     async def async_added_to_hass(self) -> None:
-        """Subscribe to the configured room sensor entity changes."""
-        # Call grandparent (SensorEntity) to avoid base class trying to track empty _dependencies
-        await super().async_added_to_hass()
+        """Subscribe to text entity changes AND the room sensor entity itself."""
+        await super().async_added_to_hass()  # registers listener for text.climate_manager_room_sensor_entity
+        # Also track the currently configured sensor directly
         entity_id = self._get_room_entity()
         if entity_id:
             cancel = async_track_state_change_event(

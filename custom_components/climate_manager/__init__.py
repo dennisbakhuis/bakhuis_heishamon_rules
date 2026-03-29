@@ -46,7 +46,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data[DOMAIN][entry.entry_id] = {"listeners": []}
 
     mqtt_base = entry.data[CONF_MQTT_BASE]
-    room_sensor = entry.data.get(CONF_ROOM_SENSOR, "")
 
     # Forward setup to all platforms
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
@@ -54,6 +53,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # --- Automation 1: Room temp sync ---
     async def _publish_room_temps(_event_or_time: object = None) -> None:
         """Publish room temperature and setpoint to MQTT opentherm topics."""
+        # Prefer live text entity value; fall back to config entry
+        text_state = hass.states.get("text.climate_manager_room_sensor_entity")
+        if text_state and text_state.state not in ("unknown", "unavailable", ""):
+            room_sensor = text_state.state.strip()
+        else:
+            room_sensor = (
+                entry.options.get(CONF_ROOM_SENSOR) or entry.data.get(CONF_ROOM_SENSOR, "")
+            ) or ""
+
         # Get room temperature from configured sensor or from the echo sensor
         if room_sensor:
             state = hass.states.get(room_sensor)
@@ -81,12 +89,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             except (ValueError, TypeError):
                 pass
 
-    # Track room sensor state changes if configured
-    if room_sensor:
-        cancel_room = async_track_state_change_event(
-            hass, [room_sensor], lambda e: hass.async_create_task(_publish_room_temps(e))
-        )
-        hass.data[DOMAIN][entry.entry_id]["listeners"].append(cancel_room)
+    # Track the text entity so we re-publish whenever the configured room sensor entity ID changes
+    cancel_room_text = async_track_state_change_event(
+        hass,
+        ["text.climate_manager_room_sensor_entity"],
+        lambda e: hass.async_create_task(_publish_room_temps(e)),
+    )
+    hass.data[DOMAIN][entry.entry_id]["listeners"].append(cancel_room_text)
 
     # Track setpoint state changes
     cancel_setpoint = async_track_state_change_event(

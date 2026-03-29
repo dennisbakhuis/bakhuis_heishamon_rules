@@ -130,6 +130,8 @@ EXPECTED_ENTITIES = {
     # Selects (2)
     "select.climate_manager_quiet_mode",
     "select.climate_manager_operation_mode",
+    # Text (1)
+    "text.climate_manager_room_sensor_entity",
 }
 
 

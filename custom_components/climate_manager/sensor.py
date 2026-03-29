@@ -67,10 +67,19 @@ DEVICE_INFO = DeviceInfo(
     model="Aquarea Heat Pump",
 )
 
-# (topic_suffix, name, unique_suffix, unit, device_class, state_class, icon)
+# (topic_suffix, name, unique_suffix, unit, device_class, state_class, icon, enabled_by_default)
 MQTT_SENSOR_DESCRIPTIONS = [
-    (TOPIC_HEATPUMP_STATE, "Heatpump State", "heatpump_state", None, None, None, "mdi:power"),
-    (TOPIC_OPERATING_MODE, "Operating Mode", "operating_mode", None, None, None, "mdi:cog-outline"),
+    (TOPIC_HEATPUMP_STATE, "Heatpump State", "heatpump_state", None, None, None, "mdi:power", True),
+    (
+        TOPIC_OPERATING_MODE,
+        "Operating Mode",
+        "operating_mode",
+        None,
+        None,
+        None,
+        "mdi:cog-outline",
+        True,
+    ),
     (
         TOPIC_DEFROSTING,
         "Defrosting State",
@@ -79,8 +88,9 @@ MQTT_SENSOR_DESCRIPTIONS = [
         None,
         None,
         "mdi:snowflake-melt",
+        False,
     ),
-    (TOPIC_QUIET_MODE, "Quiet Mode", "quiet_mode", None, None, None, "mdi:volume-off"),
+    (TOPIC_QUIET_MODE, "Quiet Mode", "quiet_mode", None, None, None, "mdi:volume-off", False),
     (
         TOPIC_OUTSIDE_TEMP,
         "Outside Temp",
@@ -89,6 +99,7 @@ MQTT_SENSOR_DESCRIPTIONS = [
         SensorDeviceClass.TEMPERATURE,
         SensorStateClass.MEASUREMENT,
         "mdi:thermometer",
+        True,
     ),
     (
         TOPIC_OUTSIDE_PIPE_TEMP,
@@ -98,6 +109,7 @@ MQTT_SENSOR_DESCRIPTIONS = [
         SensorDeviceClass.TEMPERATURE,
         SensorStateClass.MEASUREMENT,
         "mdi:pipe",
+        False,
     ),
     (
         TOPIC_INLET_TEMP,
@@ -107,6 +119,7 @@ MQTT_SENSOR_DESCRIPTIONS = [
         SensorDeviceClass.TEMPERATURE,
         SensorStateClass.MEASUREMENT,
         "mdi:thermometer-water",
+        True,
     ),
     (
         TOPIC_OUTLET_TEMP,
@@ -116,6 +129,7 @@ MQTT_SENSOR_DESCRIPTIONS = [
         SensorDeviceClass.TEMPERATURE,
         SensorStateClass.MEASUREMENT,
         "mdi:thermometer-high",
+        True,
     ),
     (
         TOPIC_TARGET_TEMP,
@@ -125,6 +139,7 @@ MQTT_SENSOR_DESCRIPTIONS = [
         SensorDeviceClass.TEMPERATURE,
         SensorStateClass.MEASUREMENT,
         "mdi:target",
+        True,
     ),
     (
         TOPIC_Z1_HEAT_REQUEST,
@@ -134,6 +149,7 @@ MQTT_SENSOR_DESCRIPTIONS = [
         SensorDeviceClass.TEMPERATURE,
         SensorStateClass.MEASUREMENT,
         "mdi:target",
+        True,
     ),
     (
         TOPIC_Z1_WATER_TEMP,
@@ -143,6 +159,7 @@ MQTT_SENSOR_DESCRIPTIONS = [
         SensorDeviceClass.TEMPERATURE,
         SensorStateClass.MEASUREMENT,
         "mdi:water-thermometer",
+        False,
     ),
     (
         TOPIC_COMPRESSOR_FREQ,
@@ -152,6 +169,7 @@ MQTT_SENSOR_DESCRIPTIONS = [
         None,
         SensorStateClass.MEASUREMENT,
         "mdi:sine-wave",
+        True,
     ),
     (
         TOPIC_PUMP_FLOW,
@@ -161,6 +179,7 @@ MQTT_SENSOR_DESCRIPTIONS = [
         None,
         SensorStateClass.MEASUREMENT,
         "mdi:water-pump",
+        False,
     ),
     (
         TOPIC_PUMP_SPEED,
@@ -170,6 +189,7 @@ MQTT_SENSOR_DESCRIPTIONS = [
         None,
         SensorStateClass.MEASUREMENT,
         "mdi:speedometer",
+        False,
     ),
     (
         TOPIC_MAX_PUMP_DUTY,
@@ -179,8 +199,9 @@ MQTT_SENSOR_DESCRIPTIONS = [
         None,
         SensorStateClass.MEASUREMENT,
         "mdi:pump",
+        False,
     ),
-    (TOPIC_3WAY_VALVE, "3way Valve", "3way_valve", None, None, None, "mdi:valve"),
+    (TOPIC_3WAY_VALVE, "3way Valve", "3way_valve", None, None, None, "mdi:valve", False),
     (
         TOPIC_HEAT_POWER_PRODUCED,
         "Heat Power Produced",
@@ -189,6 +210,7 @@ MQTT_SENSOR_DESCRIPTIONS = [
         SensorDeviceClass.POWER,
         SensorStateClass.MEASUREMENT,
         "mdi:radiator",
+        True,
     ),
     (
         TOPIC_HEAT_POWER_CONSUMED,
@@ -198,6 +220,7 @@ MQTT_SENSOR_DESCRIPTIONS = [
         SensorDeviceClass.POWER,
         SensorStateClass.MEASUREMENT,
         "mdi:lightning-bolt",
+        True,
     ),
     (
         TOPIC_OPERATING_HOURS,
@@ -207,6 +230,7 @@ MQTT_SENSOR_DESCRIPTIONS = [
         None,
         SensorStateClass.TOTAL_INCREASING,
         "mdi:clock-outline",
+        False,
     ),
     (
         TOPIC_START_STOP_COUNTER,
@@ -216,8 +240,18 @@ MQTT_SENSOR_DESCRIPTIONS = [
         None,
         SensorStateClass.TOTAL_INCREASING,
         "mdi:counter",
+        False,
     ),
-    (TOPIC_LAST_ERROR, "Last Error", "last_error", None, None, None, "mdi:alert-circle-outline"),
+    (
+        TOPIC_LAST_ERROR,
+        "Last Error",
+        "last_error",
+        None,
+        None,
+        None,
+        "mdi:alert-circle-outline",
+        False,
+    ),
     (
         TOPIC_FAN1_SPEED,
         "Fan 1 Speed",
@@ -226,6 +260,7 @@ MQTT_SENSOR_DESCRIPTIONS = [
         None,
         SensorStateClass.MEASUREMENT,
         "mdi:fan",
+        False,
     ),
     (
         TOPIC_FAN2_SPEED,
@@ -235,6 +270,7 @@ MQTT_SENSOR_DESCRIPTIONS = [
         None,
         SensorStateClass.MEASUREMENT,
         "mdi:fan",
+        False,
     ),
     (
         TOPIC_COMPRESSOR_CURRENT,
@@ -244,8 +280,18 @@ MQTT_SENSOR_DESCRIPTIONS = [
         SensorDeviceClass.CURRENT,
         SensorStateClass.MEASUREMENT,
         "mdi:current-ac",
+        False,
     ),
-    (TOPIC_HEATING_MODE, "Heating Mode", "heating_mode", None, None, None, "mdi:thermometer-check"),
+    (
+        TOPIC_HEATING_MODE,
+        "Heating Mode",
+        "heating_mode",
+        None,
+        None,
+        None,
+        "mdi:thermometer-check",
+        True,
+    ),
     (
         TOPIC_Z1_SENSOR_SETTINGS,
         "Z1 Sensor Settings",
@@ -254,6 +300,7 @@ MQTT_SENSOR_DESCRIPTIONS = [
         None,
         None,
         "mdi:water-thermometer",
+        True,
     ),
     (
         TOPIC_PUMP_FLOWRATE_MODE,
@@ -263,6 +310,7 @@ MQTT_SENSOR_DESCRIPTIONS = [
         None,
         None,
         "mdi:pump",
+        False,
     ),
     (
         TOPIC_OT_ROOM_TEMP_ECHO,
@@ -272,6 +320,7 @@ MQTT_SENSOR_DESCRIPTIONS = [
         SensorDeviceClass.TEMPERATURE,
         SensorStateClass.MEASUREMENT,
         "mdi:home-thermometer",
+        True,
     ),
     (
         TOPIC_OT_ROOM_SETPOINT_ECHO,
@@ -281,6 +330,7 @@ MQTT_SENSOR_DESCRIPTIONS = [
         SensorDeviceClass.TEMPERATURE,
         SensorStateClass.MEASUREMENT,
         "mdi:home-thermometer-outline",
+        True,
     ),
 ]
 
@@ -304,6 +354,7 @@ async def async_setup_entry(
         device_class,
         state_class,
         icon,
+        enabled_by_default,
     ) in MQTT_SENSOR_DESCRIPTIONS:
         entities.append(
             HeishaMonMQTTSensor(
@@ -316,6 +367,7 @@ async def async_setup_entry(
                 device_class=device_class,
                 state_class=state_class,
                 icon=icon,
+                enabled_by_default=enabled_by_default,
             )
         )
 
@@ -352,6 +404,7 @@ class HeishaMonMQTTSensor(RestoreSensor, SensorEntity):
         device_class: str | None,
         state_class: str | None,
         icon: str,
+        enabled_by_default: bool = True,
     ) -> None:
         """Initialize the sensor."""
         self._entry = entry
@@ -364,6 +417,7 @@ class HeishaMonMQTTSensor(RestoreSensor, SensorEntity):
         self._attr_state_class = state_class
         self._attr_icon = icon
         self._attr_device_info = DEVICE_INFO
+        self._attr_entity_registry_enabled_default = enabled_by_default
         self._unsubscribe: Any = None
 
     @property

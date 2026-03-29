@@ -17,6 +17,7 @@ from pathlib import Path
 
 from homeassistant.components import mqtt as mqtt_integration
 from homeassistant.components.frontend import async_register_built_in_panel, async_remove_panel
+from homeassistant.components.lovelace import dashboard as lovelace_dashboard
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.event import (
@@ -36,6 +37,7 @@ from .const import (
 _LOGGER = logging.getLogger(__name__)
 
 DASHBOARD_YAML = str(Path(__file__).parent / "dashboard.yaml")
+DASHBOARD_URL_PATH = "climate-manager"
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -140,17 +142,31 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     )
     hass.data[DOMAIN][entry.entry_id]["listeners"].append(cancel_compressor)
 
-    # Register sidebar panel — shows dashboard.yaml bundled with the integration
+    # Register dashboard with HA Lovelace system
+    lovelace_data = hass.data.get("lovelace")
+    if lovelace_data is not None and "dashboards" in lovelace_data:
+        dashboard_config = {
+            "id": DASHBOARD_URL_PATH,
+            "title": "Climate Manager",
+            "icon": "mdi:heat-pump",
+            "show_in_sidebar": True,
+            "require_admin": False,
+            "filename": DASHBOARD_YAML,
+        }
+        lovelace_data["dashboards"][DASHBOARD_URL_PATH] = lovelace_dashboard.LovelaceYAML(
+            hass, dashboard_config, DASHBOARD_URL_PATH
+        )
+    else:
+        _LOGGER.warning("Lovelace not available; dashboard panel not registered")
+
+    # Register sidebar entry
     async_register_built_in_panel(
         hass,
         component_name="lovelace",
         sidebar_title="Climate Manager",
         sidebar_icon="mdi:heat-pump",
-        frontend_url_path="climate-manager",
-        config={
-            "mode": "yaml",
-            "filename": DASHBOARD_YAML,
-        },
+        frontend_url_path=DASHBOARD_URL_PATH,
+        config={"mode": "yaml"},
         require_admin=False,
     )
 
@@ -163,8 +179,11 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     for cancel in hass.data[DOMAIN][entry.entry_id].get("listeners", []):
         cancel()
 
-    # Remove sidebar panel
-    async_remove_panel(hass, "climate-manager")
+    # Remove dashboard from Lovelace and sidebar
+    lovelace_data = hass.data.get("lovelace")
+    if lovelace_data is not None and DASHBOARD_URL_PATH in lovelace_data.get("dashboards", {}):
+        del lovelace_data["dashboards"][DASHBOARD_URL_PATH]
+    async_remove_panel(hass, DASHBOARD_URL_PATH)
 
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
 

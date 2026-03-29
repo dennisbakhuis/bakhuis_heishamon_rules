@@ -16,7 +16,8 @@ from .sensor import DEVICE_INFO
 
 _LOGGER = logging.getLogger(__name__)
 
-# (key, name, options, value_map, publish_suffix, icon, default)
+# (key, name, options, value_map, publish_suffix, state_suffix, icon, default)
+# state_suffix is the MQTT topic to READ current state from (or None if no read topic)
 SELECT_DESCRIPTIONS = [
     (
         "quiet_mode",
@@ -29,6 +30,7 @@ SELECT_DESCRIPTIONS = [
             "Level 3 (least power)": "3",
         },
         "commands/SetQuietMode",
+        "main/Quiet_Mode_Level",
         "mdi:volume-off",
         "Off",
     ),
@@ -46,8 +48,9 @@ SELECT_DESCRIPTIONS = [
             "Auto+DHW": "6",
         },
         "commands/SetOperationMode",
+        "main/Operating_Mode_State",
         "mdi:heat-pump",
-        "Heat+DHW",
+        "Heat only",
     ),
 ]
 
@@ -77,12 +80,16 @@ class HeishaMonSelect(RestoreEntity, SelectEntity):
         desc: tuple,
     ) -> None:
         """Initialize."""
-        (key, name, options, value_map, publish_suffix, icon, default) = desc
+        (key, name, options, value_map, publish_suffix, state_suffix, icon, default) = desc
         self._entry = entry
         self._mqtt_base = mqtt_base
         self._key = key
         self._value_map = value_map
         self._publish_suffix = publish_suffix
+        self._state_topic = f"{mqtt_base}/{state_suffix}" if state_suffix else None
+        # Build reverse map: MQTT value → option label (e.g. "0" → "Heat only")
+        self._reverse_map = {v: k for k, v in value_map.items()}
+        self._unsub = None
 
         self._attr_name = name
         self._attr_unique_id = f"climate_manager_{key}"
@@ -92,11 +99,30 @@ class HeishaMonSelect(RestoreEntity, SelectEntity):
         self._attr_device_info = DEVICE_INFO
 
     async def async_added_to_hass(self) -> None:
-        """Restore state from previous run."""
+        """Restore state from previous run and subscribe to MQTT state topic."""
         await super().async_added_to_hass()
         last_state = await self.async_get_last_state()
         if last_state and last_state.state in self._attr_options:
             self._attr_current_option = last_state.state
+
+        # Subscribe to MQTT state topic to get actual HP state
+        if self._state_topic:
+            from homeassistant.core import callback
+
+            @callback
+            def _on_message(message) -> None:  # type: ignore[override]
+                payload = str(message.payload).strip()
+                option = self._reverse_map.get(payload)
+                if option is not None:
+                    self._attr_current_option = option
+                    self.async_write_ha_state()
+
+            self._unsub = await mqtt.async_subscribe(self.hass, self._state_topic, _on_message)
+
+    async def async_will_remove_from_hass(self) -> None:
+        """Unsubscribe MQTT listener when removed."""
+        if self._unsub:
+            self._unsub()
 
     async def async_select_option(self, option: str) -> None:
         """Select an option and publish to MQTT."""

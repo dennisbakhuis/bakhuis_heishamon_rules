@@ -61,8 +61,17 @@ def _strip_comments(src: str) -> str:
 
 def _extract_blocks(src: str) -> dict[str, str]:
     """
-    Extract all on…end blocks.
-    Returns {event_name → body_text}.
+    Extract all on…end blocks from stripped source.
+
+    Parameters
+    ----------
+    src : str
+        Comment-stripped HeishaMon source text.
+
+    Returns
+    -------
+    dict[str, str]
+        Mapping of event name to block body text.
     """
     blocks: dict[str, str] = {}
     lines = src.splitlines()
@@ -97,7 +106,19 @@ def _extract_blocks(src: str) -> dict[str, str]:
 
 
 def _count_parens(s: str) -> int:
-    """Return open-paren depth: positive means unclosed '('."""
+    """
+    Return open-paren depth of a string.
+
+    Parameters
+    ----------
+    s : str
+        Input string to inspect.
+
+    Returns
+    -------
+    int
+        Net unclosed parenthesis count; positive means unclosed ``(``.
+    """
     depth = 0
     in_str = False
     for ch in s:
@@ -110,9 +131,23 @@ def _count_parens(s: str) -> int:
 
 def _preprocess_lines(lines: list[str]) -> list[str]:
     """
-    Join multi-line constructs into single logical lines:
-      1. if/elseif conditions that span multiple lines (until 'then' at EOL)
-      2. Expressions/assignments with unclosed parentheses (until balanced)
+    Join multi-line constructs into single logical lines.
+
+    Two cases are handled:
+
+    1. ``if``/``elseif`` conditions that span multiple lines (until ``then``
+       appears at end-of-line).
+    2. Expressions/assignments with unclosed parentheses (until balanced).
+
+    Parameters
+    ----------
+    lines : list[str]
+        Raw lines from a block body.
+
+    Returns
+    -------
+    list[str]
+        Lines with multi-line constructs collapsed to single lines.
     """
     result: list[str] = []
     i = 0
@@ -154,9 +189,22 @@ def _preprocess_lines(lines: list[str]) -> list[str]:
 
 def _translate_expr(expr: str) -> str:
     """
-    Translate a HeishaMon expression to Python:
-      - Replace && → and, || → or
-      - Replace #var / $var / @var / %var with _get('name') calls
+    Translate a HeishaMon expression to a Python-evaluable string.
+
+    Performs two substitutions:
+
+    - ``&&`` → ``and``, ``||`` → ``or``
+    - ``#var`` / ``$var`` / ``@var`` / ``%var`` → ``_get('name')`` calls
+
+    Parameters
+    ----------
+    expr : str
+        HeishaMon expression string.
+
+    Returns
+    -------
+    str
+        Python-evaluable expression string.
     """
     expr = expr.replace("&&", " and ").replace("||", " or ")
 
@@ -174,7 +222,16 @@ def _translate_expr(expr: str) -> str:
 def _split_args(raw: str) -> list[str]:
     """
     Split a comma-separated argument list, respecting parentheses nesting.
-    E.g. 'max(-3, $x), 1' → ['max(-3, $x)', '1']
+
+    Parameters
+    ----------
+    raw : str
+        Raw argument string, e.g. ``'max(-3, $x), 1'``.
+
+    Returns
+    -------
+    list[str]
+        Individual argument strings, e.g. ``['max(-3, $x)', '1']``.
     """
     args: list[str] = []
     depth = 0
@@ -269,8 +326,25 @@ def _exec_if_block(
     extra_locals: dict,
 ) -> int:
     """
-    Parse and execute if/elseif/else/end.
-    Returns the line index AFTER the closing 'end'.
+    Parse and execute an ``if``/``elseif``/``else``/``end`` construct.
+
+    Parameters
+    ----------
+    lines : list[str]
+        Preprocessed line buffer.
+    start : int
+        Index of the ``if`` line.
+    end : int
+        Exclusive upper bound for the search range.
+    interp : HeishaMonInterpreter
+        Interpreter instance to evaluate conditions and execute bodies.
+    extra_locals : dict
+        Current local variable bindings.
+
+    Returns
+    -------
+    int
+        Line index immediately after the closing ``end``.
     """
     clauses: list[tuple[str | None, list[str]]] = []
     current_cond: str | None = None
@@ -351,10 +425,14 @@ class HeishaMonInterpreter:
     """
     Lightweight interpreter for HeishaMon WDC rules.
 
-    State namespaces:
-      globals_  (#vars) — persistent across events
-      hpparams_ (@vars) — heat pump sensors/actuators
-      timers_   — scheduled timer intervals set by setTimer()
+    Attributes
+    ----------
+    globals_ : dict[str, Any]
+        Persistent ``#global`` variables, shared across all event handlers.
+    hpparams_ : dict[str, Any]
+        Heat pump sensor and actuator values (``@var`` and ``?var``).
+    timers_ : dict[int, int]
+        Timer intervals registered by ``setTimer(id, interval)`` calls.
     """
 
     def __init__(self) -> None:
@@ -371,10 +449,30 @@ class HeishaMonInterpreter:
     # ------------------------------------------------------------------
 
     def load_file(self, path: str | Path) -> None:
+        """
+        Load and parse a rules file from disk.
+
+        Parameters
+        ----------
+        path : str or Path
+            Filesystem path to the ``.txt`` rules file.
+        """
         src = Path(path).read_text(encoding="utf-8")
         self.load_source(src)
 
     def load_source(self, src: str) -> None:
+        """
+        Parse rules from a source string.
+
+        Strips comments, extracts all ``on … end`` blocks, and registers
+        named functions (blocks whose event name matches ``name($param)``
+        or ``name()``).
+
+        Parameters
+        ----------
+        src : str
+            Full HeishaMon rules source text.
+        """
         stripped = _strip_comments(src)
         raw_blocks = _extract_blocks(stripped)
         self._blocks = {}
@@ -401,12 +499,31 @@ class HeishaMonInterpreter:
     # ------------------------------------------------------------------
 
     def boot(self) -> None:
+        """Fire the ``System#Boot`` event."""
         self._fire("System#Boot")
 
     def fire_timer(self, n: int) -> None:
+        """
+        Fire a timer event.
+
+        Parameters
+        ----------
+        n : int
+            Timer number to fire (e.g. ``1`` fires ``timer=1``).
+        """
         self._fire(f"timer={n}")
 
     def call_function(self, name: str, args: list[Any]) -> None:
+        """
+        Call a user-defined rules function by name.
+
+        Parameters
+        ----------
+        name : str
+            Function name (without sigils).
+        args : list[Any]
+            Positional arguments to pass to the function.
+        """
         self._call(name, args, {})
 
     def _fire(self, event: str) -> None:
@@ -471,6 +588,26 @@ class HeishaMonInterpreter:
     # ------------------------------------------------------------------
 
     def _eval(self, expr: str, extra_locals: dict | None = None) -> Any:
+        """
+        Evaluate a HeishaMon expression and return its Python value.
+
+        Parameters
+        ----------
+        expr : str
+            HeishaMon expression string (may contain sigil variables).
+        extra_locals : dict, optional
+            Current local variable bindings (``$var`` scope).
+
+        Returns
+        -------
+        Any
+            Result of the evaluated expression.
+
+        Raises
+        ------
+        RuntimeError
+            When the translated expression fails to evaluate.
+        """
         el = extra_locals if extra_locals is not None else {}
         expr = expr.strip()
 
@@ -512,6 +649,16 @@ class HeishaMonInterpreter:
     # ------------------------------------------------------------------
 
     def set_sensor(self, name: str, value: Any) -> None:
+        """
+        Set a heat pump parameter value.
+
+        Parameters
+        ----------
+        name : str
+            Parameter name, with or without ``@`` / ``?`` prefix.
+        value : Any
+            Value to assign.
+        """
         if name.startswith("@") or name.startswith("?"):
             key = name
         else:
@@ -519,10 +666,33 @@ class HeishaMonInterpreter:
         self.hpparams_[key] = value
 
     def set_global(self, name: str, value: Any) -> None:
+        """
+        Set a global variable value.
+
+        Parameters
+        ----------
+        name : str
+            Variable name, with or without ``#`` prefix.
+        value : Any
+            Value to assign.
+        """
         key = name if name.startswith("#") else f"#{name}"
         self.globals_[key] = value
 
     def get_sensor(self, name: str) -> Any:
+        """
+        Get a heat pump parameter value.
+
+        Parameters
+        ----------
+        name : str
+            Parameter name, with or without ``@`` / ``?`` prefix.
+
+        Returns
+        -------
+        Any
+            Current value, or ``None`` if not set.
+        """
         if name.startswith("@") or name.startswith("?"):
             key = name
         else:
@@ -530,5 +700,18 @@ class HeishaMonInterpreter:
         return self.hpparams_.get(key)
 
     def get_global(self, name: str) -> Any:
+        """
+        Get a global variable value.
+
+        Parameters
+        ----------
+        name : str
+            Variable name, with or without ``#`` prefix.
+
+        Returns
+        -------
+        Any
+            Current value, or ``None`` if not set.
+        """
         key = name if name.startswith("#") else f"#{name}"
         return self.globals_.get(key)

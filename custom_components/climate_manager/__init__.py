@@ -154,8 +154,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             "require_admin": False,
             "filename": DASHBOARD_YAML,
         }
+        # LovelaceYAML.__init__ signature: (hass, url_path, config)
         lovelace_data.dashboards[DASHBOARD_URL_PATH] = lovelace_dashboard.LovelaceYAML(
-            hass, dashboard_config, DASHBOARD_URL_PATH
+            hass, DASHBOARD_URL_PATH, dashboard_config
         )
     else:
         _LOGGER.warning("Lovelace not available; dashboard panel not registered")

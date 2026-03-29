@@ -1,4 +1,4 @@
-"""Select platform for Heating Manager."""
+"""Select platform for Climate Manager."""
 
 from __future__ import annotations
 
@@ -66,7 +66,7 @@ async def async_setup_entry(
 
 
 class HeishaMonSelect(RestoreEntity, SelectEntity):
-    """A select entity for Heating Manager."""
+    """A select entity for Climate Manager."""
 
     _attr_has_entity_name = True
 
@@ -85,7 +85,7 @@ class HeishaMonSelect(RestoreEntity, SelectEntity):
         self._publish_suffix = publish_suffix
 
         self._attr_name = name
-        self._attr_unique_id = f"heating_manager_{key}"
+        self._attr_unique_id = f"climate_manager_{key}"
         self._attr_options = options
         self._attr_current_option = default
         self._attr_icon = icon

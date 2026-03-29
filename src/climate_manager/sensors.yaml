@@ -1,5 +1,5 @@
 # ============================================================
-# sensors.yaml — All Sensor Definitions for Heating Manager
+# sensors.yaml — All Sensor Definitions for Climate Manager
 #
 # INSTRUCTIONS:
 #   Two blocks below need to be added to configuration.yaml:

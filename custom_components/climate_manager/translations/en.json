@@ -2,7 +2,7 @@
   "config": {
     "step": {
       "user": {
-        "title": "Set up Heating Manager",
+        "title": "Set up Climate Manager",
         "description": "Connect to your Panasonic Aquarea heat pump via HeishaMon and MQTT.",
         "data": {
           "mqtt_base": "MQTT base topic",
@@ -15,7 +15,7 @@
       }
     },
     "abort": {
-      "already_configured": "Heating Manager is already configured."
+      "already_configured": "Climate Manager is already configured."
     }
   }
 }

@@ -1,16 +1,16 @@
 # ============================================================
-# Heating Manager Package — Home Assistant
+# Climate Manager Package — Home Assistant
 # For Panasonic Aquarea via HeishaMon
 #
 # INSTALLATION:
-#   1. Copy this file to: config/packages/heating_manager_package.yaml
+#   1. Copy this file to: config/packages/climate_manager_package.yaml
 #   2. Add to configuration.yaml:
 #        homeassistant:
 #          packages:
-#            heating_manager: !include packages/heating_manager_package.yaml
+#            climate_manager: !include packages/climate_manager_package.yaml
 #   3. Set your room temperature sensor (search for REPLACE_WITH_YOUR_ROOM_SENSOR below)
 #   4. Restart Home Assistant
-#   5. Import the dashboard from src/heating_manager/dashboard.yaml
+#   5. Import the dashboard from src/climate_manager/dashboard.yaml
 #
 # MQTT BASE TOPIC: panasonic_heat_pump (default HeishaMon topic)
 #   If your HeishaMon uses a different base topic, do a find-and-replace

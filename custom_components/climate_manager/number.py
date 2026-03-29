@@ -1,4 +1,4 @@
-"""Number platform for Heating Manager."""
+"""Number platform for Climate Manager."""
 
 from __future__ import annotations
 
@@ -123,7 +123,7 @@ async def async_setup_entry(
 
 
 class HeishaMonNumber(RestoreNumber, NumberEntity):
-    """A number entity for Heating Manager configuration."""
+    """A number entity for Climate Manager configuration."""
 
     _attr_has_entity_name = True
 
@@ -142,7 +142,7 @@ class HeishaMonNumber(RestoreNumber, NumberEntity):
         self._default = default
 
         self._attr_name = name
-        self._attr_unique_id = f"heating_manager_{key}"
+        self._attr_unique_id = f"climate_manager_{key}"
         self._attr_native_min_value = min_val
         self._attr_native_max_value = max_val
         self._attr_native_step = step

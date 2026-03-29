@@ -1,6 +1,6 @@
-"""Constants for the Heating Manager integration."""
+"""Constants for the Climate Manager integration."""
 
-DOMAIN = "heating_manager"
+DOMAIN = "climate_manager"
 CONF_MQTT_BASE = "mqtt_base"
 CONF_ROOM_SENSOR = "room_sensor"
 DEFAULT_MQTT_BASE = "panasonic_heat_pump"

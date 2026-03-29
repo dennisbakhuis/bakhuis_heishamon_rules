@@ -1,4 +1,4 @@
-"""Switch platform for Heating Manager."""
+"""Switch platform for Climate Manager."""
 
 from __future__ import annotations
 
@@ -33,7 +33,7 @@ class HeishaMonHeatPumpSwitch(RestoreEntity, SwitchEntity):
 
     _attr_has_entity_name = True
     _attr_name = "Heat Pump"
-    _attr_unique_id = "heating_manager_heat_pump"
+    _attr_unique_id = "climate_manager_heat_pump"
     _attr_icon = "mdi:heat-pump"
 
     def __init__(self, entry: ConfigEntry, mqtt_base: str) -> None:

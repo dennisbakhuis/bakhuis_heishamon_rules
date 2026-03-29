@@ -1,6 +1,6 @@
 # ============================================================
 # topics.yaml — MQTT Topic Reference
-# Heating Manager for HeishaMon / Panasonic Aquarea
+# Climate Manager for HeishaMon / Panasonic Aquarea
 #
 # This file documents all MQTT topics used by the Heating
 # Manager. It is NOT loaded by Home Assistant — it is

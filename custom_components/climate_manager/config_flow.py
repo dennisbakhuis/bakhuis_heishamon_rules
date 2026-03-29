@@ -20,7 +20,7 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
 )
 
 
-class HeatingManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
+class HeatingManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # type: ignore
     """Handle a config flow for Climate Manager."""
 
     VERSION = 1

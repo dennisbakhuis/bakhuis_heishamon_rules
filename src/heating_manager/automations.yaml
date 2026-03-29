@@ -1,9 +1,12 @@
 # ============================================================
 # automations.yaml — HeishaMon Heating Manager Automations
 #
-# Two automations:
+# Five automations:
 #   A. Room temperature sync (RTC keepalive)
 #   B. Compressor start time tracker (for soft-start display)
+#   C. Quiet mode sync (publishes to HeishaMon via MQTT)
+#   D. Operation mode sync (publishes to HeishaMon via MQTT)
+#   E. DHW temperature sync (publishes to HeishaMon via MQTT)
 #
 # SETUP REQUIRED before using:
 #   1. Replace `sensor.your_room_temperature_sensor` with the
@@ -15,8 +18,8 @@
 #   - Add to automations.yaml if using file-based config, then
 #     reload automations via Developer Tools → YAML → Automations
 #
-# NOTE: input_number.heishamon_room_setpoint_target must exist
-#   (add it via helpers.yaml) before enabling automation A.
+# NOTE: input helpers from helpers.yaml must exist before enabling
+#   these automations.
 # ============================================================
 
 
@@ -134,3 +137,93 @@
       entity_id: input_datetime.heishamon_compressor_start_time
       data:
         datetime: "{{ now().strftime('%Y-%m-%d %H:%M:%S') }}"
+
+
+# ============================================================
+# AUTOMATION C — Quiet Mode Sync
+#
+# PURPOSE:
+#   Publishes the selected quiet mode to HeishaMon via MQTT
+#   whenever the input_select.heishamon_quiet_mode helper changes.
+#
+# MQTT TOPIC (publish to HeishaMon):
+#   panasonic_heat_pump/commands/SetQuietMode
+#     0 = Off, 1 = Level 1 (less power), 2 = Level 2, 3 = Level 3
+# ============================================================
+
+- alias: "HeishaMon: Set Quiet Mode"
+  description: "Publishes quiet mode setting to HeishaMon via MQTT"
+  trigger:
+    - platform: state
+      entity_id: input_select.heishamon_quiet_mode
+  action:
+    - service: mqtt.publish
+      data:
+        topic: "panasonic_heat_pump/commands/SetQuietMode"
+        payload: >
+          {% set mode_map = {
+            'Off': '0',
+            'Level 1 (less power)': '1',
+            'Level 2 (even less power)': '2',
+            'Level 3 (least power)': '3'
+          } %}
+          {{ mode_map[trigger.to_state.state] | default('0') }}
+
+
+# ============================================================
+# AUTOMATION D — Operation Mode Sync
+#
+# PURPOSE:
+#   Publishes the selected operation mode to HeishaMon via MQTT
+#   whenever the input_select.heishamon_operation_mode helper changes.
+#
+# MQTT TOPIC (publish to HeishaMon):
+#   panasonic_heat_pump/commands/SetOperationMode
+#     0=Heat only, 1=Cool only, 2=Auto, 3=DHW only,
+#     4=Heat+DHW, 5=Cool+DHW, 6=Auto+DHW
+# ============================================================
+
+- alias: "HeishaMon: Set Operation Mode"
+  description: "Publishes operation mode to HeishaMon via MQTT"
+  trigger:
+    - platform: state
+      entity_id: input_select.heishamon_operation_mode
+  action:
+    - service: mqtt.publish
+      data:
+        topic: "panasonic_heat_pump/commands/SetOperationMode"
+        payload: >
+          {% set mode_map = {
+            'Heat only': '0',
+            'Cool only': '1',
+            'Auto': '2',
+            'DHW only': '3',
+            'Heat+DHW': '4',
+            'Cool+DHW': '5',
+            'Auto+DHW': '6'
+          } %}
+          {{ mode_map[trigger.to_state.state] | default('4') }}
+
+
+# ============================================================
+# AUTOMATION E — DHW Temperature Sync
+#
+# PURPOSE:
+#   Publishes the DHW target temperature to HeishaMon via MQTT
+#   whenever the input_number.heishamon_dhw_temp helper changes.
+#
+# MQTT TOPIC (publish to HeishaMon):
+#   panasonic_heat_pump/commands/SetDHWTemp
+#     Values: 40–75 (°C integer)
+# ============================================================
+
+- alias: "HeishaMon: Set DHW Temperature"
+  description: "Publishes DHW target temperature to HeishaMon via MQTT"
+  trigger:
+    - platform: state
+      entity_id: input_number.heishamon_dhw_temp
+  action:
+    - service: mqtt.publish
+      data:
+        topic: "panasonic_heat_pump/commands/SetDHWTemp"
+        payload: "{{ trigger.to_state.state | int }}"

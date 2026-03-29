@@ -6,20 +6,62 @@
 #   Add the blocks below to your Home Assistant configuration.
 #
 #   Option A (recommended): Paste directly into configuration.yaml
-#     under the relevant top-level keys (input_number, input_datetime).
+#     under the relevant top-level keys (input_select, input_number,
+#     input_datetime).
 #
 #   Option B: If you use separate include files, paste into
-#     input_number.yaml and input_datetime.yaml respectively.
+#     input_select.yaml, input_number.yaml, and input_datetime.yaml
+#     respectively.
 #
 #   After adding, restart Home Assistant (or reload input helpers
 #   via Settings → System → Restart → Quick Reload).
 #
-# NOTE: The MQTT switch (switch.heishamon_heatpump) and all MQTT
-# sensors are defined in sensors.yaml. Add them to configuration.yaml
-# under `mqtt: switch:` and `mqtt: sensor:` respectively.
+# NOTE: This file contains only user-configurable input helpers.
+# The MQTT switch (switch.heishamon_heatpump) and all MQTT sensors
+# (including template sensors) are defined in sensors.yaml.
 #
 # See README.md for full installation instructions.
 # ============================================================
+
+
+# ============================================================
+# INPUT_SELECT — Dropdown selectors
+#
+# Paste under `input_select:` in configuration.yaml
+# ============================================================
+
+input_select:
+
+  # Quiet mode selector — controls fan/compressor noise level.
+  # Changing this triggers the "HeishaMon: Set Quiet Mode" automation
+  # (see automations.yaml) which publishes to:
+  #   panasonic_heat_pump/commands/SetQuietMode
+  heishamon_quiet_mode:
+    name: "Quiet Mode"
+    options:
+      - "Off"
+      - "Level 1 (less power)"
+      - "Level 2 (even less power)"
+      - "Level 3 (least power)"
+    icon: mdi:volume-off
+    initial: "Off"
+
+  # Operation mode selector — controls what the HP is doing.
+  # Changing this triggers the "HeishaMon: Set Operation Mode" automation
+  # (see automations.yaml) which publishes to:
+  #   panasonic_heat_pump/commands/SetOperationMode
+  heishamon_operation_mode:
+    name: "Operation Mode"
+    options:
+      - "Heat only"
+      - "Cool only"
+      - "Auto"
+      - "DHW only"
+      - "Heat+DHW"
+      - "Cool+DHW"
+      - "Auto+DHW"
+    icon: mdi:heat-pump
+    initial: "Heat+DHW"
 
 
 # ============================================================
@@ -42,6 +84,19 @@ input_number:
     unit_of_measurement: "°C"
     icon: mdi:home-thermometer-outline
     initial: 21
+
+  # DHW (domestic hot water) tank target temperature.
+  # Changing this triggers the "HeishaMon: Set DHW Temperature" automation
+  # (see automations.yaml) which publishes to:
+  #   panasonic_heat_pump/commands/SetDHWTemp
+  heishamon_dhw_temp:
+    name: "DHW Target Temperature"
+    min: 40
+    max: 75
+    step: 1
+    unit_of_measurement: "°C"
+    icon: mdi:water-thermometer
+    initial: 52
 
 
 # ============================================================

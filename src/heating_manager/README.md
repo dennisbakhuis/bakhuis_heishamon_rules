@@ -52,8 +52,11 @@ All sensor and switch entities follow the `heishamon_*` naming convention:
 - `switch.heishamon_heatpump` — master on/off switch
 - `sensor.heishamon_room_temp` — room temperature (OpenTherm echo)
 - `sensor.heishamon_room_setpoint_received` — room setpoint echo
+- `input_select.heishamon_quiet_mode`, `input_select.heishamon_operation_mode` — dropdown controls defined in `helpers.yaml`
+- `input_number.heishamon_dhw_temp` — DHW temperature control defined in `helpers.yaml`
 
-The `input_select` and `input_number` controls from the HeishaMon HA integration (`heishamon.yaml`) are also used for quiet mode, heat mode, DHW temperature, and heat shift. These retain their `heishamon_*` names from that integration.
+All controls are **self-contained** — no external HA integration required.
+**Only MQTT broker required** (standard HeishaMon setup).
 
 ---
 
@@ -62,13 +65,13 @@ The `input_select` and `input_number` controls from the HeishaMon HA integration
 ### Prerequisites
 - Home Assistant with MQTT integration configured and connected to your HeishaMon broker.
 - HeishaMon device publishing to `panasonic_heat_pump/#` topics.
-- The [HeishaMon HA integration package](https://github.com/Egyras/HeishaMon) (`heishamon.yaml`) already imported — this provides the `input_select` / `input_number` controls for quiet mode, heat mode, heat shift, and DHW temperature.
+- **No additional HA integrations or HACS packages required** — everything is defined in the files in this directory.
 
 ---
 
 ### Step 1 — Add MQTT Switch and Sensors
 
-Open `sensors.yaml`. It contains the full MQTT configuration for:
+Open `sensors.yaml`. It contains the full MQTT configuration needed by the Heating Manager:
 - The HP master on/off **switch** (`switch.heishamon_heatpump`)
 - All **sensor** topics published by HeishaMon
 - The **OpenTherm echo sensors** for room temperature RTC
@@ -106,10 +109,29 @@ If you already have an `mqtt:` key, merge the `switch:` and `sensor:` lists into
 
 ### Step 2 — Add Input Helpers
 
-Open `helpers.yaml` and paste the contents into your `configuration.yaml`:
+Open `helpers.yaml` and paste the contents into your `configuration.yaml`. This adds:
+
+- `input_select.heishamon_quiet_mode` — quiet mode dropdown (Off / Level 1–3)
+- `input_select.heishamon_operation_mode` — operation mode dropdown (Heat only, DHW only, Heat+DHW, etc.)
+- `input_number.heishamon_room_setpoint_target` — room temperature target for RTC
+- `input_number.heishamon_dhw_temp` — DHW tank target temperature (40–75°C)
+- `input_datetime.heishamon_compressor_start_time` — compressor start timestamp for soft-start tracking
 
 ```yaml
 # In configuration.yaml:
+
+input_select:
+  heishamon_quiet_mode:
+    name: "Quiet Mode"
+    options: ["Off", "Level 1 (less power)", "Level 2 (even less power)", "Level 3 (least power)"]
+    icon: mdi:volume-off
+    initial: "Off"
+
+  heishamon_operation_mode:
+    name: "Operation Mode"
+    options: ["Heat only", "Cool only", "Auto", "DHW only", "Heat+DHW", "Cool+DHW", "Auto+DHW"]
+    icon: mdi:heat-pump
+    initial: "Heat+DHW"
 
 input_number:
   heishamon_room_setpoint_target:
@@ -121,6 +143,15 @@ input_number:
     icon: mdi:home-thermometer-outline
     initial: 21
 
+  heishamon_dhw_temp:
+    name: "DHW Target Temperature"
+    min: 40
+    max: 75
+    step: 1
+    unit_of_measurement: "°C"
+    icon: mdi:water-thermometer
+    initial: 52
+
 input_datetime:
   heishamon_compressor_start_time:
     name: "Heishamon Compressor Start Time"
@@ -128,7 +159,7 @@ input_datetime:
     has_time: true
 ```
 
-If you use separate include files (`input_number.yaml`, `input_datetime.yaml`), paste the relevant sections there instead.
+If you use separate include files, paste the relevant sections into `input_select.yaml`, `input_number.yaml`, and `input_datetime.yaml` respectively.
 
 ---
 
